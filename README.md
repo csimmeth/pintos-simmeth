@@ -7,11 +7,11 @@ A link to the online Pintos documentation [can be found here](http://web.stanfor
 
 
 ## Repository Setup
-Name: Tommy Trojan
+Name: Caleb Simmeth 
 
-Email: ttrojan@usc.edu
+Email: simmeth@usc.edu
 
-ID: 1234567890
+ID: 4686991695 
 
 ## Important Dates
 <strong>Project 1 Due:</strong> Thursday 2/11
