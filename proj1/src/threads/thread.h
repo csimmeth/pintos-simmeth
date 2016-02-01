@@ -99,6 +99,7 @@ struct thread
 #endif
 
     /* Owned by thread.c. */
+    //leave this at the end of the definition
     unsigned magic;                     /* Detects stack overflow. */
   };
 
