@@ -110,8 +110,6 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  //while (timer_elapsed (start) < ticks) 
-  //  thread_yield ();
 
   struct sleeping_sema ss;
   ss.waituntil = start + ticks;
@@ -119,6 +117,8 @@ timer_sleep (int64_t ticks)
 
   //add the struct to the list of waiting elements
   list_insert_ordered(&waiting_list, &(ss.elem), &less, NULL);
+
+  //block on the semaphore
   sema_down (&(ss.sema));
 }
 
@@ -199,19 +199,26 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
-  //TODO take advantage of sorting
-  struct list_elem *e;
-  for (e = list_begin (&waiting_list); e != list_end (&waiting_list);
-	   e = list_next (e)) 
-  {
-	struct sleeping_sema * ss = list_entry (e, struct sleeping_sema, elem);
-	if(timer_ticks() >= ss->waituntil)
+  // check if there are threads that can be woken 
+  // since the list is sorted, we only need to go until the first failure
+  struct list_elem *e = list_begin (&waiting_list);
+  bool wait_more = false;
+  while(!wait_more && e != list_end(&waiting_list))
 	{
-	  list_remove(e);
-	  sema_up(&(ss->sema));
+	  struct sleeping_sema * ss = list_entry (e, struct sleeping_sema, elem);
+	  if(timer_ticks() >= ss->waituntil) // check if it has waited long enough
+	  {
+		// if it has, remove it from the list and wake it
+		list_remove(e);
+		sema_up(&(ss->sema));
+	  }
+	  else
+	  {
+		// if not we don't have to check any more threads
+		wait_more = true;
+	  }
+	  e = list_next (e);
 	}
-
-  }
 
 }
 
