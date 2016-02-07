@@ -116,6 +116,17 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters)) 
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
+  /*if(!list_empty (&ready_list))
+  {
+	int pri_max = list_entry (list_back (&ready_list), 
+		  					struct thread, elem)->priority;
+	int pri_cur = current_thread()->priority;
+	if(pri_cur < pri_max){
+	  thread_yield();
+    }
+  }
+  */
+
   sema->value++;
   intr_set_level (old_level);
 }

@@ -134,9 +134,18 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  int pri_max = 0;
+  if(!list_empty (&ready_list)){
+    pri_max = list_entry(list_back (&ready_list),
+	  					   struct thread, elem)->priority;
+
+  } 
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
-    intr_yield_on_return ();
+  
+    if (++thread_ticks >= TIME_SLICE )
+		intr_yield_on_return ();  
+   	else if(t->priority < pri_max)
+		 //TODO intr_yield_on_return ();
 }
 
 /* Prints thread statistics. */
@@ -200,8 +209,26 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  //TODO this can be interrupted
+  /*if (thread_current()->priority < t->priority)
+  {
+    printf("yielding----------------------------\n");
+	thread_yield();
+  }
+  */
+  
 
   return tid;
+}
+
+// less function for sorting of ready list
+static bool priority_less(const struct list_elem *a, const struct list_elem *b, 
+				 void * aux)
+{
+  struct thread * a_thread = list_entry(a,struct thread, elem);
+  struct thread * b_thread = list_entry(b,struct thread, elem);
+
+  return a_thread->priority < b_thread->priority;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -232,14 +259,22 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
-
   ASSERT (is_thread (t));
-
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list,&t->elem, &priority_less, NULL);
+  //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+ /* printf("Current Priority: %d \n",thread_current()->priority);
+  printf("New Priority: %d \n",t->priority);
+  if (thread_current()->priority < t->priority)
+  {
+    printf("yielding\n");
+    intr_yield_on_return ();
+  }
+  */
   intr_set_level (old_level);
+  //printf("ub_2\n");
 }
 
 /* Returns the name of the running thread. */
@@ -308,7 +343,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+	list_insert_ordered(&ready_list, &cur->elem, &priority_less, NULL);
+    //list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -493,7 +529,7 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return list_entry (list_pop_back (&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page

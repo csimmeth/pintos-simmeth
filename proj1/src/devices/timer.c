@@ -91,7 +91,7 @@ timer_elapsed (int64_t then)
 }
 
 //for sorting
-static bool less (const struct list_elem *a, 
+static bool wait_less (const struct list_elem *a, 
 	const struct list_elem *b, 
 	void * aux)
 {
@@ -116,7 +116,7 @@ timer_sleep (int64_t ticks)
   sema_init (&(ss.sema),0);
 
   //add the struct to the list of waiting elements
-  list_insert_ordered(&waiting_list, &(ss.elem), &less, NULL);
+  list_insert_ordered(&waiting_list, &(ss.elem), &wait_less, NULL);
 
   //block on the semaphore
   sema_down (&(ss.sema));
