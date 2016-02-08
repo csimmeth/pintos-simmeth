@@ -209,7 +209,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
   
   while(!done && e != list_end(&waiting_list))
 	{
-	  struct sleeping_sema * ss = list_entry (e, struct sleeping_sema, elem);
+	  struct sleeping_sema * ss = list_entry (e, struct sleeping_sema,
+		                                      elem);
 	// check if it has waited long enough
 	  if(timer_ticks() >= ss->waituntil) 
 	  {
