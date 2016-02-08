@@ -214,14 +214,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  //TODO this can be interrupted
-  /*if (thread_current()->priority < t->priority)
-  {
-    printf("yielding----------------------------\n");
-	thread_yield();
-  }
-  */
-//  thread_yield();
+
+  thread_yield();
   
 
   return tid;
@@ -276,16 +270,7 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list,&t->elem, &priority_less, NULL);
   //list_push_front (&ready_list, &t->elem);
   t->status = THREAD_READY;
- /* printf("Current Priority: %d \n",thread_current()->priority);
-  printf("New Priority: %d \n",t->priority);
-  if (thread_current()->priority < t->priority)
-  {
-    printf("yielding\n");
-    intr_yield_on_return ();
-  }
-  */
   intr_set_level (old_level);
-  //printf("ub_2\n");
 }
 
 /* Returns the name of the running thread. */
@@ -383,6 +368,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */

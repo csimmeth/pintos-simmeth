@@ -206,6 +206,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   // since the list is sorted, we only need to go until the first failure
   struct list_elem *e = list_begin (&waiting_list);
   bool done = false;
+  bool woke = false;
   
   while(!done && e != list_end(&waiting_list))
 	{
@@ -217,6 +218,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 		// if it has, remove it from the list and wake it
 		list_remove(e);
 		sema_up(&(ss->sema));
+		woke = true;
 	  }
 	  else
 	  {
@@ -225,6 +227,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
 	  }
 	  e = list_next (e);
 	}
+  if(woke)
+	intr_yield_on_return();
+
 
 }
 

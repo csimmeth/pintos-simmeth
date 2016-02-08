@@ -4,6 +4,7 @@
 #include <round.h>
 #include <stdint.h>
 #include <list.h>
+#include "threads/interrupt.h"
 #include "threads/synch.h"
 
 /* Number of timer interrupts per second. */
