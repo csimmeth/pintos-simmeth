@@ -101,7 +101,6 @@ struct thread
 	struct priority_elem * bene_elem;;
     struct list_elem allelem;           /* List element for all threads list. */
 	int init_pri;
-	//struct priority_elem * init_pri;
 	struct list  priority_chain; 	    /* Keeps the original and donated priorities */
     struct lock chain_lock;
 

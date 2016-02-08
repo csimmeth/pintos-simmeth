@@ -357,42 +357,6 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
-void
-thread_set_priority (int new_priority) 
-{
-  struct thread * t = thread_current();
-  t->init_pri = new_priority;
-  
-  thread_update_priority(t);
-  //if(thread->bene != NULL)
-  //{
-//TODO bene	
-  //}
-  thread_yield();
-}
-
-//update the thread priority to the highest priority in the list
-void
-thread_update_priority(struct thread * t)
-{
-  t->priority = t->init_pri;
-  struct list * p_chain = &t->priority_chain; 
-  if(!list_empty(p_chain))
-  {
-    struct list_elem * le = list_max(p_chain, pri_elem_less, NULL);
-//	struct list_elem * le = list_front(p_chain);
-    int chain_pri  = list_entry(le,struct priority_elem, elem)->priority;
-	if(chain_pri > t->priority)
-	{
-		t->priority = chain_pri;
-	}
-
-  }
-
-  //TODO update priority of bene
-}
-
 static void
 thread_update_donation( struct thread * recipient)
 {
@@ -402,10 +366,38 @@ thread_update_donation( struct thread * recipient)
 	recipient->bene_elem->priority = recipient->priority;
 	thread_update_donation(recipient->bene);
   }
-
-  
 }
 
+/* Sets the current thread's priority to NEW_PRIORITY. */
+void
+thread_set_priority (int new_priority) 
+{
+  struct thread * t = thread_current();
+  t->init_pri = new_priority;
+  
+  thread_update_donation(t);
+  //thread_update_priority(t);
+
+  thread_yield();
+}
+
+//update the thread priority to the highest priority in the list
+void
+thread_update_priority(struct thread * t)
+{
+
+  t->priority = t->init_pri;
+  struct list * p_chain = &t->priority_chain; 
+  if(!list_empty(p_chain))
+  {
+    struct list_elem * le = list_max(p_chain, pri_elem_less, NULL);
+    int chain_pri  = list_entry(le,struct priority_elem, elem)->priority;
+	if(chain_pri > t->priority)
+	{
+		t->priority = chain_pri;
+	}
+  }
+}
 
 void 
 thread_donate_priority (struct thread * recipient,
