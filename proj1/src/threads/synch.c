@@ -246,11 +246,15 @@ lock_acquire (struct lock *lock)
 	struct priority_elem pe;
 	pe.priority = thread_get_priority();
 	pe.lock = lock;
-	thread_donate_priority(lock->holder,&pe,lock,thread_get_priority());
+	thread_donate_priority(lock->holder,&pe);
+	thread_current()->bene = lock->holder;
+	thread_current()->bene_elem =&pe;
   }
 
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  thread_current()->bene = NULL;
+  thread_current()->bene_elem = NULL;
 
 
  // list_push_front(&cur->priority_chain,&lock->pri.elem);

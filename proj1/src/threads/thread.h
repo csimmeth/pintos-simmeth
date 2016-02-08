@@ -98,7 +98,7 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
 	struct thread * bene;
-	struct lock * bene_lock;
+	struct priority_elem * bene_elem;;
     struct list_elem allelem;           /* List element for all threads list. */
 	int init_pri;
 	//struct priority_elem * init_pri;
@@ -141,8 +141,7 @@ bool pri_elem_less(const struct list_elem *a,
 void thread_update_priority(struct thread * t);
 
 void thread_donate_priority (struct thread * recipient, 
-	 						struct priority_elem * pe,
-							struct lock  *lock, int priority);
+	 						struct priority_elem * pe);
 
 void thread_release_priorities(struct lock *);
 

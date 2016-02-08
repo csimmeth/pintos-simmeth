@@ -365,7 +365,10 @@ thread_set_priority (int new_priority)
   t->init_pri = new_priority;
   
   thread_update_priority(t);
-  //TODO donate chain
+  //if(thread->bene != NULL)
+  //{
+//TODO bene	
+  //}
   thread_yield();
 }
 
@@ -390,28 +393,27 @@ thread_update_priority(struct thread * t)
   //TODO update priority of bene
 }
 
+static void
+thread_update_donation( struct thread * recipient)
+{
+  thread_update_priority(recipient);
+  if(recipient->bene != NULL)
+  {
+	recipient->bene_elem->priority = recipient->priority;
+	thread_update_donation(recipient->bene);
+  }
+
+  
+}
+
 
 void 
-thread_donate_priority (struct thread * recipient,struct priority_elem * pe, 
-						struct lock * lock, int priority)
+thread_donate_priority (struct thread * recipient,
+						struct priority_elem * pe) 
 {
-//	lock_acquire(&recipient->chain_lock);
-
 	list_push_front(&recipient->priority_chain,&pe->elem);
-	thread_update_priority(recipient);
-
-//	lock_release(&recipient->chain_lock);
-      
-	//TODO donate chain
-//	thread_donate_priority(recipient->bene,lock); //needs to update previous lock
-/*	
-	if(thread_current()->priority > recipient->priority)
-	{
-	  recipient->priority = thread_current()->priority;
-	}
-*/	
-	
-  }
+	thread_update_donation(recipient);
+}
 
 void 
 thread_release_priorities(struct lock * lock)
@@ -419,17 +421,6 @@ thread_release_priorities(struct lock * lock)
   
   struct thread * t = thread_current();
 
-  //lock_acquire(&t->chain_lock);
-   
-
- /* for(struct list_elem *e = list_begin(&t->priority_chain); e != list_end(&t->priority_chain); e = list_next(e))
-		  {
-			
-		  } 
-  */
-  
- 
-  
   struct list_elem * e = list_begin(&t->priority_chain);
   if(!list_empty(&t->priority_chain))
   {
@@ -438,18 +429,14 @@ thread_release_priorities(struct lock * lock)
     {
       struct list_elem * e_next = list_next(e);
 	
-      struct priority_elem * pe = list_entry (e, struct priority_elem, elem);
+      struct priority_elem * pe = list_entry (e, struct priority_elem, 
+		  									elem);
 	
-      if (pe->lock == lock)
+      if (pe->lock->holder != t)
  	    list_remove(e);
 	  e = e_next;
     }  
   }
-  
-
-  //lock_release(&t->chain_lock);
- 
- // thread_current()->priority = thread_current()->init_pri.priority;
 }
 
 /* Returns the current thread's priority. */
