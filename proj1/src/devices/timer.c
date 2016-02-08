@@ -120,6 +120,9 @@ timer_sleep (int64_t ticks)
 
   //block on the semaphore
   sema_down (&(ss.sema));
+
+  //thread_yield();
+  
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be

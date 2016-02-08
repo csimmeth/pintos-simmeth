@@ -131,6 +131,10 @@ sema_up (struct semaphore *sema)
 
   sema->value++;
   intr_set_level (old_level);
+  if(!intr_context())
+  	thread_yield();
+  else
+	intr_yield_on_return();
 }
 
 static void sema_test_helper (void *sema_);
@@ -246,6 +250,7 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+//  thread_yield();
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -277,6 +282,34 @@ cond_init (struct condition *cond)
   list_init (&cond->waiters);
 }
 
+static bool
+sema_less(const struct list_elem *a, const struct list_elem *b, 
+	      void * aux)
+{
+  const struct semaphore_elem * a_se = list_entry(a, struct semaphore_elem,
+	 											 elem);
+  const struct semaphore_elem * b_se = list_entry(b, struct semaphore_elem,
+	  											 elem);
+  const struct semaphore a_sem = a_se->semaphore;
+  const struct semaphore b_sem = b_se->semaphore;
+
+  int a_pri = 0;
+  int b_pri = 0;
+  if(!list_empty(&a_sem.waiters))
+  {
+    const struct thread * a_t = list_back (&a_sem.waiters);
+	a_pri = a_t->priority;
+  }
+  if(!list_empty(&b_sem.waiters))
+  {
+    const struct thread * b_t = list_back (&b_sem.waiters);
+	b_pri = b_t->priority;
+  }
+
+  return a_pri < b_pri;
+}
+
+  
 /* Atomically releases LOCK and waits for COND to be signaled by
    some other piece of code.  After COND is signaled, LOCK is
    reacquired before returning.  LOCK must be held before calling
@@ -309,9 +342,9 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   sema_init (&waiter.semaphore, 0);
 
-//  list_push_back (&cond->waiters, &waiter.elem);
+  //list_push_back (&cond->waiters, &waiter.elem);
   list_insert_ordered(&cond->waiters, &waiter.elem,
-		 				  &priority_less, NULL);
+	 				  &sema_less, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);

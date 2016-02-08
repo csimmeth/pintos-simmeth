@@ -151,7 +151,7 @@ thread_tick (void)
 
    	if(t->priority < pri_max)
 	{
-		 //intr_yield_on_return ()
+		 //intr_yield_on_return ();
 	}
 }
 
@@ -223,6 +223,7 @@ thread_create (const char *name, int priority,
 	thread_yield();
   }
   */
+//  thread_yield();
   
 
   return tid;
