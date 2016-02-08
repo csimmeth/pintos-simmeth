@@ -103,7 +103,7 @@ struct thread
 	int init_pri;
 	//struct priority_elem * init_pri;
 	struct list  priority_chain; 	    /* Keeps the original and donated priorities */
-   // struct lock chain_lock;
+    struct lock chain_lock;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

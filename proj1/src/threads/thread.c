@@ -229,7 +229,7 @@ pri_elem_less(const struct list_elem * a, const struct list_elem *b,
 	const struct priority_elem * b_pe = list_entry(b, struct priority_elem,
 													elem);
 	
-	return a_pe->priority <= b_pe->priority;
+	return a_pe->priority < b_pe->priority;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -377,8 +377,8 @@ thread_update_priority(struct thread * t)
   struct list * p_chain = &t->priority_chain; 
   if(!list_empty(p_chain))
   {
-   // struct list_elem * le = list_max(p_chain, pri_elem_less, NULL);
-	struct list_elem * le = list_front(p_chain);
+    struct list_elem * le = list_max(p_chain, pri_elem_less, NULL);
+//	struct list_elem * le = list_front(p_chain);
     int chain_pri  = list_entry(le,struct priority_elem, elem)->priority;
 	if(chain_pri > t->priority)
 	{
@@ -395,12 +395,12 @@ void
 thread_donate_priority (struct thread * recipient,struct priority_elem * pe, 
 						struct lock * lock, int priority)
 {
-	//lock_acquire(&recipient->chain_lock);
+//	lock_acquire(&recipient->chain_lock);
 
-	//list_push_front(&recipient->priority_chain,&pe->elem);
+	list_push_front(&recipient->priority_chain,&pe->elem);
 	thread_update_priority(recipient);
 
-	//lock_release(&recipient->chain_lock);
+//	lock_release(&recipient->chain_lock);
       
 	//TODO donate chain
 //	thread_donate_priority(recipient->bene,lock); //needs to update previous lock
@@ -418,37 +418,37 @@ thread_release_priorities(struct lock * lock)
 {
   
   struct thread * t = thread_current();
+
   //lock_acquire(&t->chain_lock);
    
-  struct list_elem * e = list_begin(&t->priority_chain);
 
-  for(e = list_begin(&t->priority_chain); e != list_end(&t->priority_chain); e = list_next(e));
+ /* for(struct list_elem *e = list_begin(&t->priority_chain); e != list_end(&t->priority_chain); e = list_next(e))
 		  {
 			
 		  } 
-  //while(e != list_end(&t->priority_chain))
-  //{
-//	e = list_next(e);	
- // }
-    //struct list_elem * e_next = list_next(e);
- /* 
-    struct priority_elem * pe = list_entry (e, struct priority_elem, elem);
-	//list_remove(e);
-	
-    if (pe->lock == lock)
-    {
- 	  list_remove(e);
-    }	
-	
-    e =  list_next(e); 
-  }
- 
-
-  thread_update_priority(t);
-  //lock_release(&t->chain_lock);
-  
   */
   
+ 
+  
+  struct list_elem * e = list_begin(&t->priority_chain);
+  if(!list_empty(&t->priority_chain))
+  {
+
+    while(e != list_end(&t->priority_chain))
+    {
+      struct list_elem * e_next = list_next(e);
+	
+      struct priority_elem * pe = list_entry (e, struct priority_elem, elem);
+	
+      if (pe->lock == lock)
+ 	    list_remove(e);
+	  e = e_next;
+    }  
+  }
+  
+
+  //lock_release(&t->chain_lock);
+ 
  // thread_current()->priority = thread_current()->init_pri.priority;
 }
 
@@ -578,7 +578,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
 
   list_init(&t->priority_chain);
-  //lock_init(&t->chain_lock);
+  lock_init(&t->chain_lock);
   t->init_pri = priority;
   //t->init_pri.lock = NULL;
   

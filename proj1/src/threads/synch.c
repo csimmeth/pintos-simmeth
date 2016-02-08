@@ -296,16 +296,10 @@ lock_release (struct lock *lock)
   //list_remove(&lock->pri.elem);
   //lock->pri.priority = 0;
   //thread_update_priority(thread_current());
+  thread_release_priorities(lock);
   sema_up (&lock->semaphore);
+  thread_update_priority(thread_current());
 
- // thread_release_priorities(lock);
-  
-  /*
-  if(lock != &thread_current()->chain_lock)
-  {
-  }
-  */
-  
   thread_yield();
 }
 
