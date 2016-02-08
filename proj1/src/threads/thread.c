@@ -263,8 +263,10 @@ thread_unblock (struct thread *t)
   ASSERT (is_thread (t));
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
+
   list_push_front (&ready_list, &t->elem);
   t->status = THREAD_READY;
+
   intr_set_level (old_level);
 }
 
@@ -357,6 +359,8 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/* Updtes the current thread's priority and if the updated 
+ * thread is donating it's priority, updates that recursively */
 static void
 thread_update_donation( struct thread * recipient)
 {
@@ -368,7 +372,7 @@ thread_update_donation( struct thread * recipient)
   }
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
+/* Sets the current thread's initial priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
@@ -376,12 +380,12 @@ thread_set_priority (int new_priority)
   t->init_pri = new_priority;
   
   thread_update_donation(t);
-  //thread_update_priority(t);
 
   thread_yield();
 }
 
-//update the thread priority to the highest priority in the list
+/* Updates t's priority to the max of the initial priority
+ * and the list of donated priorities */
 void
 thread_update_priority(struct thread * t)
 {
@@ -399,6 +403,7 @@ thread_update_priority(struct thread * t)
   }
 }
 
+/* Adds a new donated priority to recipient's priority list */
 void 
 thread_donate_priority (struct thread * recipient,
 						struct priority_elem * pe) 
@@ -407,6 +412,8 @@ thread_donate_priority (struct thread * recipient,
 	thread_update_donation(recipient);
 }
 
+/* Releases all prioritis associated with locks that the 
+ * current thread is no longer holding */
 void 
 thread_release_priorities(struct lock * lock)
 {
@@ -420,10 +427,9 @@ thread_release_priorities(struct lock * lock)
     while(e != list_end(&t->priority_chain))
     {
       struct list_elem * e_next = list_next(e);
-	
       struct priority_elem * pe = list_entry (e, struct priority_elem, 
 		  									elem);
-	
+	  // check if the current thread holds the lock
       if (pe->lock->holder != t)
  	    list_remove(e);
 	  e = e_next;

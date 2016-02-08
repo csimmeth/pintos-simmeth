@@ -296,19 +296,19 @@ sema_less(const struct list_elem *a, const struct list_elem *b,
 	      void * aux)
 {
   
-  const struct semaphore_elem * a_se = list_entry(a, struct semaphore_elem,
+  struct semaphore_elem * a_se = list_entry(a, struct semaphore_elem,
 	 											 elem);
-  const struct semaphore_elem * b_se = list_entry(b, struct semaphore_elem,
+  struct semaphore_elem * b_se = list_entry(b, struct semaphore_elem,
 	  											 elem);
-  const struct semaphore * a_sem = &a_se->semaphore;
-  const struct semaphore * b_sem = &b_se->semaphore;
+  struct semaphore * a_sem = &a_se->semaphore;
+  struct semaphore * b_sem = &b_se->semaphore;
 
   if(!list_empty(&a_sem->waiters))
   {
-	const struct list_elem * a_le = list_back (&a_sem->waiters);
+	 struct list_elem * a_le = list_back (&a_sem->waiters);
     if(!list_empty(&b_sem->waiters))
     {	  
-	  const struct list_elem * b_le = list_back (&b_sem->waiters);
+	   struct list_elem * b_le = list_back (&b_sem->waiters);
 	  return priority_less(a_le,b_le,NULL);
 	}
 	return false;

@@ -120,8 +120,6 @@ timer_sleep (int64_t ticks)
 
   //block on the semaphore
   sema_down (&(ss.sema));
-
-  //thread_yield();
   
 }
 
@@ -194,7 +192,7 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
@@ -212,7 +210,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 	{
 	  struct sleeping_sema * ss = list_entry (e, struct sleeping_sema,
 		                                      elem);
-	// check if it has waited long enough
+      // check if it has waited long enough
 	  if(timer_ticks() >= ss->waituntil) 
 	  {
 		// if it has, remove it from the list and wake it
@@ -227,10 +225,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
 	  }
 	  e = list_next (e);
 	}
+  // if we woke a thread, yield on return
   if(woke)
 	intr_yield_on_return();
-
-
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
