@@ -89,6 +89,7 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
+	struct list * priority_chain; 	    /* Keeps the original and donated priorities */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -102,6 +103,11 @@ struct thread
     //leave this at the end of the definition
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+struct priority_elem{
+  int priority;
+  struct list_elem elem;
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

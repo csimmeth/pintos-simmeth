@@ -495,6 +495,14 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  struct list pc;
+  t->priority_chain = &pc;
+
+  list_init(t->priority_chain);
+  struct priority_elem pe;
+  pe.priority = priority;
+  list_push_front(t->priority_chain,&pe.elem);
+  
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
