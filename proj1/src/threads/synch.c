@@ -186,6 +186,7 @@ lock_init (struct lock *lock)
 
   lock->holder = NULL;
   sema_init (&lock->semaphore, 1);
+  lock->pri.priority = 0;
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -203,8 +204,40 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+
+  struct thread * cur = thread_current();
+  struct thread * holder  = lock->holder;
+  
+  if(holder != NULL)
+  {
+    if(lock->pri.priority < thread_get_priority())
+    {
+      lock->pri.priority = thread_get_priority();
+	  thread_update_priority(holder);
+    }
+  }
+  thread_current()->bene = holder;
+  thread_current()->bene_pri_elem = &lock->pri;
+  
+  
+
+ /* if(lock->holder != NULL)
+  {
+	struct thread * t = lock->holder;
+    list_push_front(&t->priority_chain,&pe.elem);
+    thread_update_priority(t);
+    thread_current()->bene = t;
+  }*/
+
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+
+
+  list_push_front(&cur->priority_chain,&lock->pri.elem);
+
+  thread_current()->bene = NULL;
+  thread_current()->bene_pri_elem = NULL;
+  
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -239,7 +272,18 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   lock->holder = NULL;
+  
+  //list_remove(&lock->pri.elem);
+  lock->pri.priority = 0;
+  thread_update_priority(thread_current());
   sema_up (&lock->semaphore);
+  /*
+  if(lock != &thread_current()->chain_lock)
+  {
+    thread_release_priorities(lock);
+  }
+  */
+  
   thread_yield();
 }
 

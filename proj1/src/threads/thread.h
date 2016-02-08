@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -80,6 +81,12 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+
+//struct priority_elem{
+ // int priority;
+  //struct list_elem elem;
+//};
+
 struct thread
   {
     /* Owned by thread.c. */
@@ -88,8 +95,13 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
+	struct thread * bene;
+	struct priority_elem * bene_pri_elem;
     struct list_elem allelem;           /* List element for all threads list. */
-	struct list * priority_chain; 	    /* Keeps the original and donated priorities */
+	int init_pri;
+	//struct priority_elem * init_pri;
+	struct list  priority_chain; 	    /* Keeps the original and donated priorities */
+   // struct lock chain_lock;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -104,10 +116,6 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
-struct priority_elem{
-  int priority;
-  struct list_elem elem;
-};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -125,6 +133,15 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 bool priority_less(const struct list_elem *a, 
 				const struct list_elem *b, void * aux);
+bool pri_elem_less(const struct list_elem *a,
+					const struct list_elem *b, void * aux);
+
+void thread_update_priority(struct thread * t);
+
+void thread_donate_priority (struct thread * recipient,
+   							struct priority_elem  *pe);
+
+void thread_release_priorities(struct lock *);
 void thread_block (void);
 void thread_unblock (struct thread *);
 

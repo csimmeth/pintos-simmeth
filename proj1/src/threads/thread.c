@@ -134,23 +134,11 @@ thread_tick (void)
   else
     kernel_ticks++;
 
- /* int pri_max = 0;
-  if(!list_empty (&ready_list)){
-    pri_max = list_entry(list_back (&ready_list),
-	 					   struct thread, elem)->priority;
-	//pri_max = list_entry(list_max(&ready_list,&priority_less,NULL),
-	 //				 	struct thread, elem)->priority;
-
-  } 
- */ 
   /* Enforce preemption. */
   
     if (++thread_ticks >= TIME_SLICE )
 		intr_yield_on_return ();  
 
-
-   //	if(t->priority < pri_max)
-		 //intr_yield_on_return ();
 }
 
 /* Prints thread statistics. */
@@ -229,11 +217,19 @@ priority_less(const struct list_elem *a, const struct list_elem *b,
   const struct thread * a_thread = list_entry(a, struct thread, elem);
   const struct thread * b_thread = list_entry(b, struct thread, elem);
 
-  //printf("A: %d \n",a_thread->priority);
-  //printf("B: %d \n",b_thread->priority);
-
-
   return a_thread->priority <= b_thread->priority;
+}
+
+bool
+pri_elem_less(const struct list_elem * a, const struct list_elem *b, 
+				void * aux)
+{
+	const struct priority_elem * a_pe = list_entry(a, struct priority_elem,
+													elem);
+	const struct priority_elem * b_pe = list_entry(b, struct priority_elem,
+													elem);
+	
+	return a_pe->priority < b_pe->priority;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -367,9 +363,80 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread * t = thread_current();
+  t->init_pri = new_priority;
+  
+  thread_update_priority(t);
+  //TODO donate chain
   thread_yield();
 }
+
+//update the thread priority to the highest priority in the list
+void
+thread_update_priority(struct thread * t)
+{
+  struct list * p_chain = &t->priority_chain; 
+  struct list_elem * le = list_max(p_chain, pri_elem_less, NULL);
+  t->priority = list_entry(le,struct priority_elem, elem)->priority;
+
+  if(t->init_pri > t->priority)
+	t->priority = t->init_pri;
+  //update priority of bene
+}
+
+/*
+void 
+thread_donate_priority (struct thread * recipient, 
+						struct priority_elem * pe)
+{
+  if(recipient != NULL)
+  {
+	
+	lock_acquire(&recipient->chain_lock);
+
+	list_push_front(&recipient->priority_chain,&pe->elem);
+	thread_update_priority(recipient);
+
+	lock_release(&recipient->chain_lock);
+      
+	//TODO donate chain
+//	thread_donate_priority(recipient->bene,lock); //needs to update previous lock
+	
+	if(thread_current()->priority > recipient->priority)
+	{
+	  recipient->priority = thread_current()->priority;
+	}
+	
+	
+  }
+}
+
+void 
+thread_release_priorities(struct lock * lock)
+{
+  
+  struct thread * t = thread_current();
+  lock_acquire(&t->chain_lock);
+  struct list_elem * e = list_begin(&t->priority_chain);
+  
+  while(e != list_end(&t->priority_chain))
+  {
+    struct list_elem * e_next = list_next(e);
+    struct priority_elem * pe = list_entry (e, struct priority_elem, elem);
+    if (pe->lock == lock)
+    {
+ 	  list_remove(e);
+    }	
+    e = e_next;
+  }
+ 
+
+  thread_update_priority(t);
+  lock_release(&t->chain_lock);
+  
+  
+ // thread_current()->priority = thread_current()->init_pri.priority;
+}*/
 
 /* Returns the current thread's priority. */
 int
@@ -495,13 +562,13 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
-  struct list pc;
-  t->priority_chain = &pc;
 
-  list_init(t->priority_chain);
-  struct priority_elem pe;
-  pe.priority = priority;
-  list_push_front(t->priority_chain,&pe.elem);
+  list_init(&t->priority_chain);
+  //lock_init(&t->chain_lock);
+  t->init_pri = priority;
+  //t->init_pri.lock = NULL;
+  
+  //list_push_front(&t->priority_chain,&t->init_pri.elem);
   
   t->magic = THREAD_MAGIC;
 
