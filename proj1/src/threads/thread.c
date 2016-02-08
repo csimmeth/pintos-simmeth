@@ -229,7 +229,7 @@ pri_elem_less(const struct list_elem * a, const struct list_elem *b,
 	const struct priority_elem * b_pe = list_entry(b, struct priority_elem,
 													elem);
 	
-	return a_pe->priority < b_pe->priority;
+	return a_pe->priority <= b_pe->priority;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -263,8 +263,7 @@ thread_unblock (struct thread *t)
   ASSERT (is_thread (t));
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list,&t->elem, &priority_less, NULL);
-  //list_push_front (&ready_list, &t->elem);
+  list_push_front (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -335,8 +334,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-	list_insert_ordered(&ready_list, &cur->elem, &priority_less, NULL);
-   // list_push_front (&ready_list, &cur->elem);
+    list_push_front (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -375,68 +373,84 @@ thread_set_priority (int new_priority)
 void
 thread_update_priority(struct thread * t)
 {
+  t->priority = t->init_pri;
   struct list * p_chain = &t->priority_chain; 
-  struct list_elem * le = list_max(p_chain, pri_elem_less, NULL);
-  t->priority = list_entry(le,struct priority_elem, elem)->priority;
+  if(!list_empty(p_chain))
+  {
+   // struct list_elem * le = list_max(p_chain, pri_elem_less, NULL);
+	struct list_elem * le = list_front(p_chain);
+    int chain_pri  = list_entry(le,struct priority_elem, elem)->priority;
+	if(chain_pri > t->priority)
+	{
+		t->priority = chain_pri;
+	}
 
-  if(t->init_pri > t->priority)
-	t->priority = t->init_pri;
-  //update priority of bene
+  }
+
+  //TODO update priority of bene
 }
 
-/*
-void 
-thread_donate_priority (struct thread * recipient, 
-						struct priority_elem * pe)
-{
-  if(recipient != NULL)
-  {
-	
-	lock_acquire(&recipient->chain_lock);
 
-	list_push_front(&recipient->priority_chain,&pe->elem);
+void 
+thread_donate_priority (struct thread * recipient,struct priority_elem * pe, 
+						struct lock * lock, int priority)
+{
+	//lock_acquire(&recipient->chain_lock);
+
+	//list_push_front(&recipient->priority_chain,&pe->elem);
 	thread_update_priority(recipient);
 
-	lock_release(&recipient->chain_lock);
+	//lock_release(&recipient->chain_lock);
       
 	//TODO donate chain
 //	thread_donate_priority(recipient->bene,lock); //needs to update previous lock
-	
+/*	
 	if(thread_current()->priority > recipient->priority)
 	{
 	  recipient->priority = thread_current()->priority;
 	}
-	
+*/	
 	
   }
-}
 
 void 
 thread_release_priorities(struct lock * lock)
 {
   
   struct thread * t = thread_current();
-  lock_acquire(&t->chain_lock);
+  //lock_acquire(&t->chain_lock);
+   
   struct list_elem * e = list_begin(&t->priority_chain);
-  
-  while(e != list_end(&t->priority_chain))
-  {
-    struct list_elem * e_next = list_next(e);
+
+  for(e = list_begin(&t->priority_chain); e != list_end(&t->priority_chain); e = list_next(e));
+		  {
+			
+		  } 
+  //while(e != list_end(&t->priority_chain))
+  //{
+//	e = list_next(e);	
+ // }
+    //struct list_elem * e_next = list_next(e);
+ /* 
     struct priority_elem * pe = list_entry (e, struct priority_elem, elem);
+	//list_remove(e);
+	
     if (pe->lock == lock)
     {
  	  list_remove(e);
     }	
-    e = e_next;
+	
+    e =  list_next(e); 
   }
  
 
   thread_update_priority(t);
-  lock_release(&t->chain_lock);
+  //lock_release(&t->chain_lock);
   
+  */
   
  // thread_current()->priority = thread_current()->init_pri.priority;
-}*/
+}
 
 /* Returns the current thread's priority. */
 int
@@ -601,8 +615,11 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else{
-	//return list_entry (list_max(&ready_list, priority_less, NULL), struct thread, elem); 
-    return list_entry (list_pop_back (&ready_list), struct thread, elem);
+	struct list_elem * le = list_max(&ready_list,priority_less,NULL);
+	struct thread * t = list_entry(le, struct thread, elem);
+	list_remove(le);
+	return t;
+    //return list_entry (list_pop_back (&ready_list), struct thread, elem);
   }
 }
 

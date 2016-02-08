@@ -82,10 +82,12 @@ typedef int tid_t;
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
 
-//struct priority_elem{
- // int priority;
-  //struct list_elem elem;
-//};
+struct priority_elem{
+  int priority;
+  struct list_elem elem;
+  struct lock * lock;
+};
+
 
 struct thread
   {
@@ -96,7 +98,7 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
 	struct thread * bene;
-	struct priority_elem * bene_pri_elem;
+	struct lock * bene_lock;
     struct list_elem allelem;           /* List element for all threads list. */
 	int init_pri;
 	//struct priority_elem * init_pri;
@@ -138,10 +140,12 @@ bool pri_elem_less(const struct list_elem *a,
 
 void thread_update_priority(struct thread * t);
 
-void thread_donate_priority (struct thread * recipient,
-   							struct priority_elem  *pe);
+void thread_donate_priority (struct thread * recipient, 
+	 						struct priority_elem * pe,
+							struct lock  *lock, int priority);
 
 void thread_release_priorities(struct lock *);
+
 void thread_block (void);
 void thread_unblock (struct thread *);
 
