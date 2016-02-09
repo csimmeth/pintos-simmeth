@@ -32,7 +32,7 @@ static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
 // List of waiting threads
-  struct list waiting_list;
+struct list waiting_list;
   
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
@@ -116,7 +116,9 @@ timer_sleep (int64_t ticks)
   sema_init (&(ss.sema),0);
 
   //add the struct to the list of waiting elements
+  enum intr_level old_level = intr_disable();
   list_insert_ordered(&waiting_list, &(ss.elem), wait_less, NULL);
+  intr_set_level (old_level);
 
   //block on the semaphore
   sema_down (&(ss.sema));
