@@ -100,22 +100,83 @@ rather than the sleeping thread.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+The priority elem includes a priority and a list_elem as a way to put
+donated priorities in a list. The lock * records which lock the donated
+priority is associated with. 
+
+struct priority_elem{
+  int priority;
+  struct list_elem elem;
+  struct lock * lock;
+}
+
+Added to struct thread:
+
+struct thread * bene;
+struct priority_elem * bene_elem;
+int init_pri;
+struct list priority_chain;
 
 
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
 >> .png file.)
 
+To track priority donation, each thread has a list of priority_elem's.
+called priority_chain. This list keeps track of each donation the thread 
+has received. Whenever the list is modified, the maximum priority in the
+list is found, and the thread priority is set to the max of the donated
+priorities and the initial priority.
+
+When the thread releases a lock, it check the list and gives up any
+priorities donated to it associated with a lock it no longer has.
+
+A(3), B(2), C(1)
+A donates to B
+A(3) -> B(3)
+Later, B donates to C
+A(3) -> B(3) -> C(3)
+
+This is is nested because B donates the priority that was
+donated to it by A.
+
+
 ---- ALGORITHMS ----
 
 >> B3: How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
+Semaphore: The thread calling sema_up unblocks the highest priority
+thread waiting on the semaphore.
+
+Lock: Uses a semaphore.
+
+Condition Variable: cond_signal wakes the waiting thread with the highest
+priority. 
+
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
 
+If the lock already has a holder, a new priority_elem is created.
+This elem holds the priority of the current thread, as well as
+the lock that the thread wants to acquire. This elem is added to
+the priority_chain of the thread that is currently holding the lock,
+causing the holder's priority to increase if the donated priority is
+higher than the previous priority. The current thread's bene elements
+are updated to reflect the fact that it is donating its priority.
+
+Nested donatations are handled by donating the highest priority currently
+available to a thread. When a new priority is added to the
+priority_chain, and the thread is currently donating it's priority,
+the donated priority is updated to the new priority.
+
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
+
+First, the thread releases any priorities it has been donated assocated
+with the lock being released. Next, the thread waiting on the lock is 
+woken by a call to sema_up. Finally, the thread's priority is updated
+to the next highest priority it has access to, and it yields.
 
 ---- SYNCHRONIZATION ----
 
@@ -123,10 +184,35 @@ rather than the sleeping thread.
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
+Consider a case where, in a more advanced scheduler, thread a is currently
+in the process of donating its priority to thread b, when it gets
+switched out. Thread b finishes, and then thread a finishes donating
+its priority. In this case thread b now has a priority that it should
+not have. 
+
+My implementation avoids this because, when thread b is 
+removing priorities, it checks all the priorities it has been donated
+and makes sure it still holds the lock for each of them. So, if it has
+mistakenly been given a priority, it will still get rid of it.
+
+This can not be done with a lock, because you would need to release
+a lock in the lock_release() function. And this causes infinite 
+recursion.
+
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+I chose this design because it results in only one donated priority_elem
+per thread that is waiting on a lock. I considered a design where
+at each level of priority chaining, a new priority_elem was created,
+but this resulted in a lot of elements, and made iterating through
+the priority_chain slower. 
+
+I also considered a design where the priroity_elem was a part of the 
+lock instead of the thread. This ran into problems when multiple 
+threads tried to acquire the same lock.
 
 			   SURVEY QUESTIONS
 			   ================
@@ -140,14 +226,9 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
->> Did you find that working on a particular part of the assignment gave
->> you greater insight into some aspect of OS design?
-
->> Is there some particular fact or hint we should give students in
->> future quarters to help them solve the problems?  Conversely, did you
->> find any of our guidance to be misleading?
-
->> Do you have any suggestions for the TAs to more effectively assist
->> students, either for future quarters or the remaining projects?
-
->> Any other comments?
+The frustrating part about this assignment was that I felt that most of
+my time was spent debugging. When I was able to work on actual OS
+functionality it was interesting and I learned a lot, but so much of
+the project was spent not on implementing features but on debugging very
+small errors. I'm not sure how this could be fixed in Pintos, however,
+since it seems to limit the usefulness of debugging tools.

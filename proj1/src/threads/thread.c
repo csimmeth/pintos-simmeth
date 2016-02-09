@@ -564,11 +564,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
 
   list_init(&t->priority_chain);
-  lock_init(&t->chain_lock);
   t->init_pri = priority;
-  //t->init_pri.lock = NULL;
-  
-  //list_push_front(&t->priority_chain,&t->init_pri.elem);
   
   t->magic = THREAD_MAGIC;
 

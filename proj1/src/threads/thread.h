@@ -98,11 +98,10 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
 	struct thread * bene;
-	struct priority_elem * bene_elem;;
+	struct priority_elem * bene_elem;
     struct list_elem allelem;           /* List element for all threads list. */
 	int init_pri;
 	struct list  priority_chain; 	    /* Keeps the original and donated priorities */
-    struct lock chain_lock;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
