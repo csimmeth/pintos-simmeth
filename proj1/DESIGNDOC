@@ -40,7 +40,14 @@ struct sleeping_sema
 
 Added to timer.c:
 
+A list of threads waiting to be woken
 struct list waiting_list
+
+A less function to sort by waking time 
+static bool wait_less (const struct list_elem *a,
+						const struct list_elem *b,
+						boid * aux)
+
 
 ---- ALGORITHMS ----
 
@@ -116,6 +123,20 @@ struct thread * bene;
 struct priority_elem * bene_elem;
 int init_pri;
 struct list priority_chain;
+
+Added to thread.c
+
+Less function for sorting threads by priority
+bool priority_less(const struct list_elem *a, const struct list_elem *b, 
+                                void * aux )
+
+Added to synch.c:
+
+Less function for sorting semaphores by the priority of the
+threads waiting on them.
+static bool sema_less(const struct list_elem *a, 
+					  const struct list_elem *b,
+					  void * aux)
 
 
 >> B2: Explain the data structure used to track priority donation.

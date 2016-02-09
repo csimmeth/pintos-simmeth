@@ -601,7 +601,6 @@ next_thread_to_run (void)
 	struct thread * t = list_entry(le, struct thread, elem);
 	list_remove(le);
 	return t;
-    //return list_entry (list_pop_back (&ready_list), struct thread, elem);
   }
 }
 
