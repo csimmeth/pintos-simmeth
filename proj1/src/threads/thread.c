@@ -209,10 +209,10 @@ thread_create (const char *name, int priority,
   return tid;
 }
 
-// less function for sorting of list by priority
+/* Less function for sorting threads by priority */
 bool 
 priority_less(const struct list_elem *a, const struct list_elem *b, 
-				 void * aux)
+				 void * aux __attribute__((unused)))
 {
   const struct thread * a_thread = list_entry(a, struct thread, elem);
   const struct thread * b_thread = list_entry(b, struct thread, elem);
@@ -220,9 +220,10 @@ priority_less(const struct list_elem *a, const struct list_elem *b,
   return a_thread->priority <= b_thread->priority;
 }
 
+/* Less function for sorting priority_elem's by prioritiy */
 bool
 pri_elem_less(const struct list_elem * a, const struct list_elem *b, 
-				void * aux)
+				void * aux __attribute__((unused)))
 {
 	const struct priority_elem * a_pe = list_entry(a, struct priority_elem,
 													elem);
@@ -415,7 +416,7 @@ thread_donate_priority (struct thread * recipient,
 /* Releases all prioritis associated with locks that the 
  * current thread is no longer holding */
 void 
-thread_release_priorities(struct lock * lock)
+thread_release_priorities()
 {
   
   struct thread * t = thread_current();

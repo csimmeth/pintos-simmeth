@@ -142,7 +142,7 @@ void thread_update_priority(struct thread * t);
 void thread_donate_priority (struct thread * recipient, 
 	 						struct priority_elem * pe);
 
-void thread_release_priorities(struct lock *);
+void thread_release_priorities(void);
 
 void thread_block (void);
 void thread_unblock (struct thread *);

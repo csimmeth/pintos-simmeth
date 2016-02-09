@@ -90,10 +90,10 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-//for sorting
+/* Less function for sorting sleeping_sema's by wait time */
 static bool wait_less (const struct list_elem *a, 
 	const struct list_elem *b, 
-	void * aux)
+	void * aux __attribute__((unused)))
 {
   struct sleeping_sema *a_ss = list_entry(a, struct sleeping_sema, elem); 
   struct sleeping_sema *b_ss = list_entry(b, struct sleeping_sema, elem);
@@ -200,8 +200,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
-  // check if there are threads that can be woken 
-  // since the list is sorted, we only need to go until the first failure
+  /* Check if there are threads that can be woken. Since the list is 
+   * sorted, checking  only need to go until the first failure. */
   struct list_elem *e = list_begin (&waiting_list);
   bool done = false;
   bool woke = false;
@@ -220,12 +220,11 @@ timer_interrupt (struct intr_frame *args UNUSED)
 	  }
 	  else
 	  {
-		// if not we don't have to check any more threads
      	done = true;
 	  }
 	  e = list_next (e);
 	}
-  // if we woke a thread, yield on return
+  /* If a thread was woken, yield on return */
   if(woke)
 	intr_yield_on_return();
 }

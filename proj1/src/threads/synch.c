@@ -207,16 +207,23 @@ lock_acquire (struct lock *lock)
 
   if(lock->holder != NULL)
   {
+	/* Since we are going to have to wait, create a new priority_elem
+	 * And donate it to the lock's holder */
 	struct priority_elem pe;
 	pe.priority = thread_get_priority();
 	pe.lock = lock;
 	thread_donate_priority(lock->holder,&pe);
+
+	/* Update the current thread to reflect that we are currently
+	 * donating priority to another thread */
 	thread_current()->bene = lock->holder;
 	thread_current()->bene_elem =&pe;
   }
 
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+
+  /* Since the donation is over, set to NULL */
   thread_current()->bene = NULL;
   thread_current()->bene_elem = NULL;
 }
@@ -254,8 +261,12 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
   
-  thread_release_priorities(lock);
+  /* Now that the thread is no longer the owner of this lock
+   * remove a possible donated priority associated with it */
+  thread_release_priorities();
   sema_up (&lock->semaphore);
+
+  /* Now update the priority to reflect this change */
   thread_update_priority(thread_current());
 
   thread_yield();
@@ -271,7 +282,7 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem 
   {
@@ -290,10 +301,11 @@ cond_init (struct condition *cond)
   list_init (&cond->waiters);
 }
 
-//less function for condition variables to judge priorities
+/* Less function for ranking semaphore_elem's based on the priority
+ * of the first waiter in the semaphore's waiter list */ 
 static bool
 sema_less(const struct list_elem *a, const struct list_elem *b, 
-	      void * aux)
+	      void * aux __attribute__((unused)))
 {
   
   struct semaphore_elem * a_se = list_entry(a, struct semaphore_elem,
