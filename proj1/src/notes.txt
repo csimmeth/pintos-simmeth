@@ -1,0 +1,36 @@
+sema_down
+  list_push_back
+
+sema_up
+  list_remove(list_max))
+
+lock_acquire
+  if there is a holder
+  donate priority(holder, lock, priority)
+  cur->bene = holder
+  cur->bene lock = lock
+
+sema_down
+
+  cur->bene = NULL
+  cur-> bene lock = NULL
+
+  lock_release
+  remove priorities(cur,lock)
+  yield
+
+donate_priority(thread,lock,priority)
+  create a prioritiy_elem with lock = lock and priority = priority
+  add it to threads priority_chain
+  update master priority
+  if(thread->bene != NULL)
+    donate_priority(thread->bene,thread->bene_lock,thread->priority)
+  
+remove_priorities(cur,lock)
+  for each priority_elem in cur->priority_chain
+    if lock == lock
+      list_remove (priority_elem.elem)
+      
+  update master priority    
+  
+
