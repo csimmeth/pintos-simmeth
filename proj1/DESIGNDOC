@@ -152,11 +152,16 @@ priorities and the initial priority.
 When the thread releases a lock, it check the list and gives up any
 priorities donated to it associated with a lock it no longer has.
 
-A(3), B(2), C(1)
-A donates to B
-A(3) -> B(3)
-Later, B donates to C
-A(3) -> B(3) -> C(3)
+There are three threads: A(3), B(2), C(1)
+A wants a lock that B has so it donates it's priority.
+|---------|       |---------|
+|  A (3)  | ----> |  B (3)  |
+|---------|       |---------|
+
+B then needs a different lock that C has so it donates A's priority
+|---------|       |---------|
+|  B (3)  | ----> |  C (3)  |
+|---------|       |---------|
 
 This is is nested because B donates the priority that was
 donated to it by A.
