@@ -30,7 +30,7 @@ None.
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
 The sleeping_sema is an expanded semaphore element that can be placed 
-in a list, and records the time that the thread should wake.
+in a list, and it records the time that the thread should wake.
 struct sleeping_sema
   {
     struct list_elem elem;
@@ -153,15 +153,16 @@ When the thread releases a lock, it check the list and gives up any
 priorities donated to it associated with a lock it no longer has.
 
 There are three threads: A(3), B(2), C(1)
-A wants a lock that B has so it donates it's priority.
+B wants a lock that C has so it donates it's priority.
 |---------|       |---------|
-|  A (3)  | ----> |  B (3)  |
+|  B (2)  | ----> | C 1(2)  |
 |---------|       |---------|
 
-B then needs a different lock that C has so it donates A's priority
-|---------|       |---------|
-|  B (3)  | ----> |  C (3)  |
-|---------|       |---------|
+A then needs a different lock that B has so it donates its priority to B
+B then donates the new priority to C
+|---------|       |---------|       |---------|
+|  A (3)  | ----> | B 2(3)  | ----> |C 1 2(3) | 
+|---------|       |---------|       |---------|
 
 This is is nested because B donates the priority that was
 donated to it by A.
@@ -243,18 +244,13 @@ threads tried to acquire the same lock.
 			   SURVEY QUESTIONS
 			   ================
 
-Answering these questions is optional, but it will help us improve the
-course in future quarters.  Feel free to tell us anything you
-want--these questions are just to spur your thoughts.  You may also
-choose to respond anonymously in the course evaluations at the end of
-the quarter.
-
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
 The frustrating part about this assignment was that I felt that most of
-my time was spent debugging. When I was able to work on actual OS
-functionality it was interesting and I learned a lot, but so much of
-the project was spent not on implementing features but on debugging very
-small errors. I'm not sure how this could be fixed in Pintos, however,
-since it seems to limit the usefulness of debugging tools.
+my time was spent debugging and not actually working on stuff related to
+the class.. When I was able to work on actual OS functionality it was 
+interesting and useful, but so much of the project was spent not on 
+implementing features but on debugging very small errors. I'm not sure 
+how this could be fixed in Pintos, however, since it seems to limit the 
+usefulness of debugging tools.
