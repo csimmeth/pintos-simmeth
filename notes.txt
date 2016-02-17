@@ -1,0 +1,42 @@
+
+Do process_wait first
+ - so that you can run tests
+ - using synchronization
+
+Running Processes
+ - exec -> create process
+	- give i texecutable and arguments
+	- use process_execute to impliment it
+	- parse arguments and place them on the stack
+    - theoretically infinite argument
+
+Return Address
+ - return address helps you know where to go back to
+
+Syscalls
+ - User program tells the kernel what it wants to do
+ - Trap instruction
+ - Proj1 was entirely in kernel mode
+ - 20-25 syscalls hourglass design
+ 
+Syscalls in Pintos
+ - Don't mess with lib/user/syscall.c
+ - impliment syscall handler
+ - user validations are in pagedir.c
+ - release resources in kernel!
+	- make sure there are no memory leaks
+
+Make sure functionality for syscalls is extensible
+ - project 3 adds more syscalls
+
+Use the quick start guide
+1. Act like argv argc and return address exist
+ - Allows starting tests
+ - make sure to unto when implimenting real arguments
+2.
+ - can place in a while(true) loop
+
+
+before starting
+use pintos base and add alarm-clock
+
