@@ -1,8 +1,10 @@
 #include "userprog/syscall.h"
+#include "userprog/pagedir.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -13,8 +15,29 @@ syscall_init (void)
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f) 
 {
-  printf ("system call!\n");
+  
+  // Check for invalid memory address 
+  if(f->esp == NULL || f->esp >= PHYS_BASE){
+    printf("esp > phys_base or NULL\n");
+    printf("esp: %p\n",f->esp);
+	thread_exit();
+  }
+	
+  void * page = pagedir_get_page(thread_current()->pagedir,f->esp);
+  if(page == NULL){
+     printf ("Page not found!\n");
+     thread_exit ();
+  }
+
+  int syscall = *(int*)f->esp;
+  printf ("Call Number: %d\n",syscall);
+
+  switch(syscall){
+   // fill this out	
+  }
+
+  printf ("system call unknown!\n");
   thread_exit ();
 }
