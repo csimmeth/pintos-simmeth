@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -38,10 +39,21 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* Create the child struct and initialize elements */
+  struct process_info * child_info = malloc(sizeof(struct process_info));
+  child_info->exit_status = -1;
+  sema_init(&child_info->sema,0);
+
+  /* Add the child to the current thread's list of children */
+  list_push_back(&thread_current()->children,&child_info->elem);
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
+  {
     palloc_free_page (fn_copy); 
+	//TODO remove child_info from list and delete it in case of failure
+  }
   return tid;
 }
 
@@ -86,11 +98,34 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  while(true);
+  struct thread * t = thread_current();
+  struct list * child_list = &t->children;
+  struct process_info * p_info = NULL;
+
+  /* Iterate through the list of children until we find a match */
+  struct list_elem *e;
+  for (e = list_begin (child_list); e != list_end(child_list);
+	   e = list_next(e))
+  {
+	struct process_info *p = list_entry(e,struct process_info,elem);
+	if(p->tid == child_tid)
+	{
+      p_info = p;
+	  break;
+	}
+  }
+
+  // If no match, return -1
+  if(p_info == NULL)
+	return -1;
+
+  //TODO remove e from list and deallocate memory
+
+  sema_down(&p_info->sema);
   
-  return -1;
+  return p_info->exit_status;
 }
 
 /* Free the current process's resources. */
@@ -218,6 +253,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
   char * fn_copy = NULL;
+
+
+  /* Mark that this is a process thread */
+  t->is_process = true;
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -465,6 +504,9 @@ setup_stack (void **esp)
   return success;
 }
 
+//TODO impiliment error checking
+//If arguments > page, return false
+//If page can not be allocated... etc...
 void init_stack(void **esp, const char *file_name)
 {
   /* Create a copy of the file name */

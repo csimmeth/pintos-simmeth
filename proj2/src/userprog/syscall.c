@@ -75,10 +75,7 @@ syscall_handler (struct intr_frame *f)
 	default:
        printf ("system call unknown!\n");
        thread_exit ();
-
   }
-
-
 }
 
 static void
@@ -91,18 +88,17 @@ static void
 exit(struct intr_frame * f)
 {
   int status = get_int(f,1);
-  printf("Status: %d\n",status);
+  thread_current()->p_info->exit_status = status;
   f->eax = status;
-  process_exit();
+  thread_exit();	
 }
 
 static void 
 write(struct intr_frame * f)
 {
-  int fd = get_int(f,1);
+  //int fd = get_int(f,1);
   char * buffer = get_char_ptr(f,2);
   int size = get_int(f,3);
-  printf("following line is from program\n");//TODO remove this
   putbuf(buffer,size);
 
 }

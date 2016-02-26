@@ -10,9 +10,9 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
 
-struct child_process
+struct process_info
 {
-  struct thread * child;
+  tid_t tid;
   struct semaphore sema;
   int exit_status;
   struct list_elem elem;

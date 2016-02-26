@@ -183,6 +183,27 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+  /* If this is a process, set the parent */
+  if(is_thread(running_thread()))
+  {
+
+	struct list * parent_list = &running_thread()->children;
+	printf("Current thread list size: %d\n",list_size(parent_list));
+
+	if(!list_empty(&running_thread()->children))
+	{
+		printf("Creating Process!\n");
+		//TODO list_back might grab the wrong list
+		t->p_info = list_entry(list_back(parent_list),
+			struct process_info, elem);
+		t->p_info->tid = tid;
+		printf("EXIT: %d\n",t->p_info->exit_status);
+	}
+	    
+
+  }
+
+  
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -285,6 +306,13 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
+
+  /* If a process is waiting, release it */
+  if(thread_current()->p_info != NULL)
+  {
+	sema_up(&thread_current()->p_info->sema);
+  }
+
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
@@ -462,6 +490,10 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->is_process = false;
+  list_init(&t->children);
+
+
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
