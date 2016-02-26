@@ -73,6 +73,7 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -275,6 +276,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   args = strtok_r(fn_copy, " ", &save_ptr);
 
   /* Open executable file. */
+  printf("File Name %s\n",args);
   file = filesys_open (args);
 
   /* Done with the copy */
@@ -561,7 +563,8 @@ void init_stack(void **esp, const char *file_name)
 
   palloc_free_page(fn_copy);
   palloc_free_page(pointers);
-  hex_dump(0,*esp,PHYS_BASE - *esp,true); //TODO remove this
+  //hex_dump(0,*esp,PHYS_BASE - *esp,true); //TODO remove this
+  ///
   
 }
 

@@ -55,7 +55,7 @@ syscall_handler (struct intr_frame *f)
 
   int syscall = get_int(f,0); 
 
-  printf("Syscall: %d\n",syscall);
+  //printf("Syscall: %d\n",syscall);
   
 
   switch(syscall){

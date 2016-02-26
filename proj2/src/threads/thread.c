@@ -188,16 +188,13 @@ thread_create (const char *name, int priority,
   {
 
 	struct list * parent_list = &running_thread()->children;
-	printf("Current thread list size: %d\n",list_size(parent_list));
 
 	if(!list_empty(&running_thread()->children))
 	{
-		printf("Creating Process!\n");
 		//TODO list_back might grab the wrong list
 		t->p_info = list_entry(list_back(parent_list),
 			struct process_info, elem);
 		t->p_info->tid = tid;
-		printf("EXIT: %d\n",t->p_info->exit_status);
 	}
 	    
 
