@@ -10,9 +10,11 @@
 
 static void syscall_handler (struct intr_frame *);
 
-static void exit(struct intr_frame *f);
-static void write(struct intr_frame *f);
 static void halt(void);
+static void exit(struct intr_frame *f);
+static void exec(struct intr_frame *f);
+static void wait(struct intr_frame *f);
+static void write(struct intr_frame *f);
 
 void
 syscall_init (void) 
@@ -55,7 +57,7 @@ syscall_handler (struct intr_frame *f)
 
   int syscall = get_int(f,0); 
 
-  //printf("Syscall: %d\n",syscall);
+  printf("Syscall: %d\n",syscall);
   
 
   switch(syscall){
@@ -68,8 +70,16 @@ syscall_handler (struct intr_frame *f)
 	    exit(f);
 		break;
 
+	case SYS_EXEC:
+		exec(f);
+		break;
+
 	case SYS_WRITE:
 	   write(f);
+	   break;
+
+	case SYS_WAIT:
+	   wait(f);
 	   break;
 
 	default:
@@ -88,15 +98,54 @@ static void
 exit(struct intr_frame * f)
 {
   int status = get_int(f,1);
+
+  /* Store the exit status for the parent */
   thread_current()->p_info->exit_status = status;
+
   f->eax = status;
+  printf("Exit Status: %d\n", f->eax);
+
   thread_exit();	
+}
+
+static void
+exec(struct intr_frame *f)
+{
+  char * file_name = get_char_ptr(f,1);
+  tid_t tid = process_execute(file_name); 
+
+  if(tid == TID_ERROR){
+	f->eax = tid;
+	return;
+  }
+
+  /* Get the info of the created process */
+  struct list_elem *e = list_back(&thread_current()->children);
+  struct process_info *p = list_entry(e,struct process_info, elem);
+
+  /* Wait until the process has been initialized */
+  sema_down(&p->sema);
+
+  /* Return the pid */
+  if(p->success)
+    f->eax = p->tid;
+  else
+	f->eax = TID_ERROR;
+
+}
+
+static void
+wait(struct intr_frame *f)
+{
+  tid_t pid = get_int(f,1);
+  printf("pid: %d\n", pid);
 }
 
 static void 
 write(struct intr_frame * f)
 {
   //int fd = get_int(f,1);
+  //printf("FD: %d\n", fd);
   char * buffer = get_char_ptr(f,2);
   int size = get_int(f,3);
   putbuf(buffer,size);

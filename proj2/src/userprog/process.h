@@ -16,6 +16,7 @@ struct process_info
   struct semaphore sema;
   int exit_status;
   struct list_elem elem;
+  bool success;
 };
 
 #endif /* userprog/process.h */

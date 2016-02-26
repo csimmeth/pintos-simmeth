@@ -76,6 +76,10 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+
+  thread_current()->p_info->success = success;
+  sema_up(&thread_current()->p_info->sema);
+
   if (!success) 
     thread_exit ();
 
@@ -122,10 +126,13 @@ process_wait (tid_t child_tid)
   if(p_info == NULL)
 	return -1;
 
-  //TODO remove e from list and deallocate memory
-
+  // Wait for the thread to exit
   sema_down(&p_info->sema);
   
+  // remove e from list and deallocate memory
+  list_remove(e);
+  free(p_info);
+
   return p_info->exit_status;
 }
 
@@ -276,7 +283,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   args = strtok_r(fn_copy, " ", &save_ptr);
 
   /* Open executable file. */
-  printf("File Name %s\n",args);
   file = filesys_open (args);
 
   /* Done with the copy */
