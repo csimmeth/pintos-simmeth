@@ -102,6 +102,7 @@ write(struct intr_frame * f)
   int fd = get_int(f,1);
   char * buffer = get_char_ptr(f,2);
   int size = get_int(f,3);
+  printf("following line is from program\n");//TODO remove this
   putbuf(buffer,size);
 
 }

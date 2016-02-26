@@ -89,7 +89,7 @@ int
 process_wait (tid_t child_tid UNUSED) 
 {
   while(true);
-
+  
   return -1;
 }
 
@@ -198,6 +198,7 @@ struct Elf32_Phdr
 #define PF_R 4          /* Readable. */
 
 static bool setup_stack (void **esp);
+static void init_stack (void **esp, const char *file_name); 
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -224,16 +225,23 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  /* Create a copy of the file name */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
   
+  /* Parse the file name */
   char *args, *save_ptr;
   args = strtok_r(fn_copy, " ", &save_ptr);
 
   /* Open executable file. */
   file = filesys_open (args);
+
+  /* Done with the copy */
+  if(fn_copy != NULL)
+    palloc_free_page (fn_copy); 
+
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -316,6 +324,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
 
+  init_stack(esp, file_name);
+
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
@@ -324,8 +334,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
-  if(fn_copy != NULL)
-    palloc_free_page (fn_copy); 
   return success;
 }
 
@@ -450,11 +458,74 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
   return success;
+}
+
+void init_stack(void **esp, const char *file_name)
+{
+  /* Create a copy of the file name */
+  char * fn_copy = palloc_get_page (0);
+  strlcpy (fn_copy, file_name, PGSIZE);
+
+  /* Create an array to store pointers to each arg */
+  void ** pointers = palloc_get_page(0);
+  char *args, *save_ptr;
+  int argc = 0;
+
+  /* Iterate through each arg adding it to the stack */
+  for (args = strtok_r (fn_copy, " ", &save_ptr);
+		args != NULL; 
+		args = strtok_r(NULL, " ", &save_ptr))
+  {
+	int size = strnlen(args, PGSIZE);
+
+	*esp -= size + 1;
+	strlcpy((char*)*esp,args,size + 1);
+	pointers[argc] = *esp;
+
+	  printf("Size: %d\n",size);
+	  printf("'%s'\n",args);
+	  argc++;
+  }
+
+ /* Word Align */ 
+  while((int)*esp % 4 != 0){
+	*(char*)--*esp = '0';
+  }
+
+  /* Add pointers to stack */
+  pointers[argc] = NULL;
+  for(int i = argc; i >= 0; i--)
+  {
+    *esp -= 4;
+    *(int*)*esp = pointers[i];
+    printf("Pointer %p\n",pointers[i]);
+  }
+
+  /* Add argv and argc */
+  int * argv = *esp;
+
+  *esp -= 4;
+  *(int*)*esp = argv; 
+
+  *esp -= 4;
+  *(int*)*esp = argc; 
+
+  /* Add a fake return */
+   *esp -= 4;
+  *(int*)*esp = argc; 
+
+  
+
+  printf("argc: %d\n", argc);
+  
+  palloc_free_page(fn_copy);
+  hex_dump(0,*esp,PHYS_BASE - *esp,true);
+  
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
