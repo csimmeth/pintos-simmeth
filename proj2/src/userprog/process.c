@@ -487,8 +487,6 @@ void init_stack(void **esp, const char *file_name)
 	strlcpy((char*)*esp,args,size + 1);
 	pointers[argc] = *esp;
 
-	  printf("Size: %d\n",size);
-	  printf("'%s'\n",args);
 	  argc++;
   }
 
@@ -502,29 +500,26 @@ void init_stack(void **esp, const char *file_name)
   for(int i = argc; i >= 0; i--)
   {
     *esp -= 4;
-    *(int*)*esp = pointers[i];
-    printf("Pointer %p\n",pointers[i]);
+    *(int*)*esp = (int)pointers[i];
   }
+
 
   /* Add argv and argc */
   int * argv = *esp;
 
   *esp -= 4;
-  *(int*)*esp = argv; 
+  *(int*)*esp = (int)argv; 
 
   *esp -= 4;
-  *(int*)*esp = argc; 
+  *(int*)*esp = (int)argc; 
 
   /* Add a fake return */
-   *esp -= 4;
-  *(int*)*esp = argc; 
+  *esp -= 4;
+  *(int*)*esp = (int)NULL; 
 
-  
-
-  printf("argc: %d\n", argc);
-  
   palloc_free_page(fn_copy);
-  hex_dump(0,*esp,PHYS_BASE - *esp,true);
+  palloc_free_page(pointers);
+  hex_dump(0,*esp,PHYS_BASE - *esp,true); //TODO remove this
   
 }
 
