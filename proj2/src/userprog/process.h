@@ -18,6 +18,7 @@ struct process_info
   int exit_status;
   struct list_elem elem;
   bool success;
+  char * name;
 };
 
 #endif /* userprog/process.h */

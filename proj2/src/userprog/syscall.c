@@ -57,7 +57,7 @@ syscall_handler (struct intr_frame *f)
 
   int syscall = get_int(f,0); 
 
-  printf("Syscall: %d\n",syscall);
+  //printf("Syscall: %d\n",syscall);
   
 
   switch(syscall){
@@ -100,10 +100,12 @@ exit(struct intr_frame * f)
   int status = get_int(f,1);
 
   /* Store the exit status for the parent */
-  thread_current()->p_info->exit_status = status;
+  if(thread_current()->p_info != NULL){
+    thread_current()->p_info->exit_status = status;
+  }
 
   f->eax = status;
-  printf("Exit Status: %d\n", f->eax);
+   //printf("Exit Status: %d\n", f->eax);
 
   thread_exit();	
 }

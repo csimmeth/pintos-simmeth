@@ -266,8 +266,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   char * fn_copy = NULL;
 
 
-  /* Mark that this is a process thread */
-  t->is_process = true;
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -287,6 +285,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (args);
+
+  /* Mark that this is a process thread and store the name*/
+  t->is_process = true;
+  t->p_info->name = palloc_get_page(0);
+  strlcpy(t->p_info->name,args,PGSIZE);
 
   /* Done with the copy */
   if(fn_copy != NULL)

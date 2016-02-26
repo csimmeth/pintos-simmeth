@@ -304,10 +304,16 @@ thread_exit (void)
   process_exit ();
 #endif
 
+  struct thread * t = thread_current();
   /* If a process is waiting, release it */
-  if(thread_current()->p_info != NULL)
+  if(t->p_info != NULL)
   {
-	sema_up(&thread_current()->p_info->sema_finish);
+	sema_up(&t->p_info->sema_finish);
+	printf("%s: exit(%d)\n",t->p_info->name,
+		t->p_info->exit_status);
+	//TODO release data for all child threads
+	//includes struct process_info
+	//and char * name inside
   }
 
 
