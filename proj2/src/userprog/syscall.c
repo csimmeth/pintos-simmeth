@@ -124,21 +124,20 @@ exec(struct intr_frame *f)
   struct process_info *p = list_entry(e,struct process_info, elem);
 
   /* Wait until the process has been initialized */
-  sema_down(&p->sema);
+  sema_down(&p->sema_start);
 
   /* Return the pid */
   if(p->success)
     f->eax = p->tid;
   else
 	f->eax = TID_ERROR;
-
 }
 
 static void
 wait(struct intr_frame *f)
 {
   tid_t pid = get_int(f,1);
-  printf("pid: %d\n", pid);
+  process_wait(pid);
 }
 
 static void 

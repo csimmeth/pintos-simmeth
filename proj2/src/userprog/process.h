@@ -13,7 +13,8 @@ void process_activate (void);
 struct process_info
 {
   tid_t tid;
-  struct semaphore sema;
+  struct semaphore sema_start;
+  struct semaphore sema_finish;
   int exit_status;
   struct list_elem elem;
   bool success;

@@ -42,7 +42,8 @@ process_execute (const char *file_name)
   /* Create the child struct and initialize elements */
   struct process_info * child_info = malloc(sizeof(struct process_info));
   child_info->exit_status = -1;
-  sema_init(&child_info->sema,0);
+  sema_init(&child_info->sema_start,0);
+  sema_init(&child_info->sema_finish,0);
 
   /* Add the child to the current thread's list of children */
   list_push_back(&thread_current()->children,&child_info->elem);
@@ -78,7 +79,7 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
 
   thread_current()->p_info->success = success;
-  sema_up(&thread_current()->p_info->sema);
+  sema_up(&thread_current()->p_info->sema_start);
 
   if (!success) 
     thread_exit ();
@@ -124,10 +125,12 @@ process_wait (tid_t child_tid)
 
   // If no match, return -1
   if(p_info == NULL)
+  {
 	return -1;
+  }
 
   // Wait for the thread to exit
-  sema_down(&p_info->sema);
+  sema_down(&p_info->sema_finish);
   
   // remove e from list and deallocate memory
   list_remove(e);

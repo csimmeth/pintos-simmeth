@@ -307,7 +307,7 @@ thread_exit (void)
   /* If a process is waiting, release it */
   if(thread_current()->p_info != NULL)
   {
-	sema_up(&thread_current()->p_info->sema);
+	sema_up(&thread_current()->p_info->sema_finish);
   }
 
 
