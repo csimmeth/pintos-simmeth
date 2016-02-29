@@ -146,27 +146,28 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  if(cur->p_info != NULL){
+  /* p_info will still point somewhere, but it might be deallocated */
 
-    struct process_info * p = cur->p_info;
-	sema_up(&p->sema_finish);
-	printf("%s: exit(%d)\n",p->name,p->exit_status);
+  if(cur->is_process){
+    printf("%s: exit(%d)\n",cur->process_name,cur->exit_status);
+  }
 
-	/* Remove all dynamic memory for child process info */
-	struct list_elem *e;
-	struct list *c = &cur->children;
-	for(e = list_begin (c); e != list_end(c); e = list_next(e))
-	{
-	  struct process_info * child_info = list_entry(e, struct process_info,
+  /* Remove all dynamic memory for child process info */
+  struct list_elem *e;
+  struct list *c = &cur->children;
+  for(e = list_begin (c); e != list_end(c); e = list_next(e))
+  {
+    struct process_info * child_info = list_entry(e, struct process_info,
 		 										    elem);
-      palloc_free_page (child_info->name);
-	  free(child_info);
-
-	}
+    free(child_info);
+  }
 
   /* If a process is waiting, release it */
-
+  if(cur->p_info != NULL){
+    struct process_info * p = cur->p_info;
+	sema_up(&p->sema_finish);
   }
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -307,10 +308,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Open executable file. */
   file = filesys_open (args);
 
-  /* Mark that this is a process thread and store the name*/
+  /* Mark that this is a process */
   t->is_process = true;
-  t->p_info->name = palloc_get_page(0);
-  strlcpy(t->p_info->name,args,PGSIZE);
 
   /* Done with the copy */
   if(fn_copy != NULL)

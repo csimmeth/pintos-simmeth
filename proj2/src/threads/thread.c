@@ -484,6 +484,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->is_process = false;
   list_init(&t->children);
+  int i = 0;
+  
+  /* Copy the first word of name to process_name */
+  while(t->name[i] != ' ' && t->name[i] != '\0')
+  {
+    t->process_name[i] = t->name[i];
+	i++;
+  }
 
 
   t->magic = THREAD_MAGIC;

@@ -95,8 +95,9 @@ struct thread
 
 	struct list children;
 	struct process_info  * p_info;
-
 	bool is_process;
+	int exit_status;
+	char process_name[16];
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

@@ -93,7 +93,7 @@ timer_elapsed (int64_t then)
 //for sorting
 static bool less (const struct list_elem *a, 
 	const struct list_elem *b, 
-	void * aux)
+	void * aux UNUSED)
 {
   struct sleeping_sema *a_ss = list_entry(a, struct sleeping_sema, elem); 
   struct sleeping_sema *b_ss = list_entry(b, struct sleeping_sema, elem);

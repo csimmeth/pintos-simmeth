@@ -100,9 +100,11 @@ exit(struct intr_frame * f)
   int status = get_int(f,1);
 
   /* Store the exit status for the parent */
+  //TODO this might cause problems if p_info is gone
   if(thread_current()->p_info != NULL){
     thread_current()->p_info->exit_status = status;
   }
+  thread_current()->exit_status = status;
 
   f->eax = status;
    //printf("Exit Status: %d\n", f->eax);
@@ -116,6 +118,7 @@ exec(struct intr_frame *f)
   char * file_name = get_char_ptr(f,1);
   tid_t tid = process_execute(file_name); 
 
+  /* If the execution failed, return */
   if(tid == TID_ERROR){
 	f->eax = tid;
 	return;
@@ -139,7 +142,9 @@ static void
 wait(struct intr_frame *f)
 {
   tid_t pid = get_int(f,1);
-  process_wait(pid);
+  int exit_status = process_wait(pid);
+  f->eax = exit_status;
+  
 }
 
 static void 
