@@ -78,6 +78,7 @@ start_process (void *file_name_)
   /* If load failed, quit. */
   palloc_free_page (file_name);
 
+  /* Because the parent blocks, p_info will always be available */
   thread_current()->p_info->success = success;
   sema_up(&thread_current()->p_info->sema_start);
 
@@ -133,6 +134,7 @@ process_wait (tid_t child_tid)
   sema_down(&p_info->sema_finish);
   
   // remove e from list and deallocate memory
+  // Don't need to modify the child because it has exited
   list_remove(e);
   free(p_info);
 
@@ -146,7 +148,6 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  /* p_info will still point somewhere, but it might be deallocated */
 
   if(cur->is_process){
     printf("%s: exit(%d)\n",cur->process_name, cur->exit_status);
@@ -159,12 +160,21 @@ process_exit (void)
   {
     struct process_info * child_info = list_entry(e, struct process_info,
 		 										    elem);
+
+	/* Mark that the parent has quit for each child*/
+	if(child_info->child != NULL)
+	  child_info->child->p_info = NULL;
+
     free(child_info);
   }
 
   /* If a process is waiting, release it */
   if(cur->p_info != NULL){
     struct process_info * p = cur->p_info;
+	
+	/* Mark that this thread is no longer active */
+	p->child = NULL;
+
 	sema_up(&p->sema_finish);
   }
 
@@ -266,7 +276,7 @@ struct Elf32_Phdr
 #define PF_R 4          /* Readable. */
 
 static bool setup_stack (void **esp);
-static void init_stack (void **esp, const char *file_name); 
+static bool init_stack (void **esp, const char *file_name); 
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -397,7 +407,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
 
-  init_stack(esp, file_name);
+  if (!init_stack(esp, file_name))
+	goto done;
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -538,21 +549,36 @@ setup_stack (void **esp)
   return success;
 }
 
-//TODO impiliment error checking
+//TODO impilement error checking
 //If arguments > page, return false
 //If page can not be allocated... etc...
-void init_stack(void **esp, const char *file_name)
+static bool
+init_stack(void **esp, const char *file_name)
 {
-  /* Create a copy of the file name */
+
+  bool success = false;
+
   char * fn_copy = palloc_get_page (0);
+  if(fn_copy == NULL)
+	return success;
+
+  /* Create a copy of the file name */
   strlcpy (fn_copy, file_name, PGSIZE);
 
   /* Create an array to store pointers to each arg */
   void ** pointers = palloc_get_page(0);
-  char *args, *save_ptr;
-  int argc = 0;
+  
+  /* Check for successful memory allocation */
+  if( pointers == NULL)
+  {
+    palloc_free_page(fn_copy);
+    return success;
+  }
+
 
   /* Iterate through each arg adding it to the stack */
+  char *args, *save_ptr;
+  int argc = 0;
   for (args = strtok_r (fn_copy, " ", &save_ptr);
 		args != NULL; 
 		args = strtok_r(NULL, " ", &save_ptr))
@@ -563,7 +589,7 @@ void init_stack(void **esp, const char *file_name)
 	strlcpy((char*)*esp,args,size + 1);
 	pointers[argc] = *esp;
 
-	  argc++;
+	argc++;
   }
 
  /* Word Align */ 
@@ -597,6 +623,8 @@ void init_stack(void **esp, const char *file_name)
   palloc_free_page(pointers);
   //hex_dump(0,*esp,PHYS_BASE - *esp,true); //TODO remove this
   ///
+  success = true;
+  return success;
   
 }
 

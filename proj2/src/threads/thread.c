@@ -194,6 +194,7 @@ thread_create (const char *name, int priority,
 		t->p_info = list_entry(list_back(parent_list),
 			struct process_info, elem);
 		t->p_info->tid = tid;
+		t->p_info->child = t;
 	}
   }
 

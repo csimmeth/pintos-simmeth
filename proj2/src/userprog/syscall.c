@@ -16,16 +16,26 @@ static void exec(struct intr_frame *f);
 static void wait(struct intr_frame *f);
 static void write(struct intr_frame *f);
 
+
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+static void 
+verify_addr(void * a)
+{
+  if(a == NULL || a >= PHYS_BASE)
+	thread_exit();
+}
+
 static void * 
 get_arg(struct intr_frame *f, int arg){
 
-  return f->esp + (arg * sizeof(int));
+  void * temp = f->esp + (arg * sizeof(int));
+  verify_addr(temp);
+  return temp;
 }
 
 static int
@@ -41,13 +51,9 @@ get_char_ptr(struct intr_frame *f, int arg){
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  
+
   // Check for invalid memory address 
-  if(f->esp == NULL || f->esp >= PHYS_BASE){
-    printf("esp > phys_base or NULL\n");
-    printf("esp: %p\n",f->esp);
-	thread_exit();
-  }
+  verify_addr(f->esp);
 	
   void * page = pagedir_get_page(thread_current()->pagedir,f->esp);
   if(page == NULL){
@@ -56,8 +62,6 @@ syscall_handler (struct intr_frame *f)
 
   int syscall = get_int(f,0); 
 
-  //printf("Syscall: %d\n",syscall);
-  
 
   switch(syscall){
 
@@ -99,7 +103,6 @@ exit(struct intr_frame * f)
   int status = get_int(f,1);
 
   /* Store the exit status for the parent */
-  //TODO this might cause problems if p_info is gone
   if(thread_current()->p_info != NULL){
     thread_current()->p_info->exit_status = status;
   }
