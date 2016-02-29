@@ -186,7 +186,6 @@ thread_create (const char *name, int priority,
   /* If this is a process, set the parent */
   if(is_thread(running_thread()))
   {
-
 	struct list * parent_list = &running_thread()->children;
 
 	if(!list_empty(&running_thread()->children))
@@ -196,8 +195,6 @@ thread_create (const char *name, int priority,
 			struct process_info, elem);
 		t->p_info->tid = tid;
 	}
-	    
-
   }
 
   
@@ -304,17 +301,9 @@ thread_exit (void)
   process_exit ();
 #endif
 
-  struct thread * t = thread_current();
-  /* If a process is waiting, release it */
-  if(t->p_info != NULL)
-  {
-	sema_up(&t->p_info->sema_finish);
-	printf("%s: exit(%d)\n",t->p_info->name,
-		t->p_info->exit_status);
 	//TODO release data for all child threads
 	//includes struct process_info
 	//and char * name inside
-  }
 
 
   /* Remove thread from all threads list, set our status to dying,

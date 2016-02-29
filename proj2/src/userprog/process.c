@@ -146,6 +146,27 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  if(cur->p_info != NULL){
+
+    struct process_info * p = cur->p_info;
+	sema_up(&p->sema_finish);
+	printf("%s: exit(%d)\n",p->name,p->exit_status);
+
+	/* Remove all dynamic memory for child process info */
+	struct list_elem *e;
+	struct list *c = &cur->children;
+	for(e = list_begin (c); e != list_end(c); e = list_next(e))
+	{
+	  struct process_info * child_info = list_entry(e, struct process_info,
+		 										    elem);
+      palloc_free_page (child_info->name);
+	  free(child_info);
+
+	}
+
+  /* If a process is waiting, release it */
+
+  }
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
