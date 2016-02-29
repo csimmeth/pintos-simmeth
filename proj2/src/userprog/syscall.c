@@ -51,7 +51,6 @@ syscall_handler (struct intr_frame *f)
 	
   void * page = pagedir_get_page(thread_current()->pagedir,f->esp);
   if(page == NULL){
-     printf ("Page not found!\n");
      thread_exit ();
   }
 

@@ -301,11 +301,6 @@ thread_exit (void)
   process_exit ();
 #endif
 
-	//TODO release data for all child threads
-	//includes struct process_info
-	//and char * name inside
-
-
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
@@ -483,10 +478,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->is_process = false;
+  t->exit_status = -1;
   list_init(&t->children);
-  int i = 0;
   
   /* Copy the first word of name to process_name */
+  int i = 0;
   while(t->name[i] != ' ' && t->name[i] != '\0')
   {
     t->process_name[i] = t->name[i];

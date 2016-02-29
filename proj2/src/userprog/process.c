@@ -149,7 +149,7 @@ process_exit (void)
   /* p_info will still point somewhere, but it might be deallocated */
 
   if(cur->is_process){
-    printf("%s: exit(%d)\n",cur->process_name,cur->exit_status);
+    printf("%s: exit(%d)\n",cur->process_name, cur->exit_status);
   }
 
   /* Remove all dynamic memory for child process info */
