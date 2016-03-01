@@ -23,6 +23,7 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static struct lock file_lock;
+static struct file * get_file(int fd);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -65,12 +66,13 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy); 
   }
 
+  lock_release(&file_lock);
+
   sema_down(&child_info->sema_start);
 
   if(!child_info->success)
 	tid = TID_ERROR;
 
-  lock_release(&file_lock);
   return tid;
 }
 
@@ -94,11 +96,18 @@ start_process (void *file_name_)
 
   thread_current()->p_info->success = success;
 
+
   /* If load failed, quit. */
   if (!success) 
   {
     thread_exit ();
   }
+
+  int fd = process_file_open(thread_current()->process_name);
+
+  lock_acquire(&file_lock);
+  file_deny_write(get_file(fd));
+  lock_release(&file_lock);
 
   /* Because the parent blocks, p_info will always be available */
   sema_up(&thread_current()->p_info->sema_start);
@@ -179,7 +188,6 @@ process_exit (void)
   struct list *c = &cur->children;
   struct list_elem *e = list_begin (c);
   while(e != list_end(c))
-  //for(e = list_begin (c); e != list_end(c); e = list_next(e))
   {
     struct process_info * child_info = list_entry(e, struct process_info,
 		 										    elem);
@@ -191,6 +199,17 @@ process_exit (void)
 	  child_info->child->p_info = NULL;
 
     free(child_info);
+  }
+
+  /* Close all open files */
+  struct list *files = &cur->files;
+  e = list_begin(files);
+  while(e != list_end(files))
+  {
+    struct file_info * fi = list_entry(e, struct file_info, elem);
+	e = list_next(e);
+
+	process_close(fi->fd);
   }
 
   /* Modify p_info to show that this child has quit
@@ -355,9 +374,9 @@ process_read(int fd, void *buffer, uint32_t size)
       return -1;
 
 	 
-  lock_acquire(&file_lock);
-  bytes_read = file_read(file, buffer, size);
-  lock_release(&file_lock);
+    lock_acquire(&file_lock);
+    bytes_read = file_read(file, buffer, size);
+    lock_release(&file_lock);
 	 
   }
 
@@ -369,7 +388,7 @@ int
 process_write(int fd, void *buffer, uint32_t size)
 {
 
-  int bytes_written= -1;
+  int bytes_written= 0;
 
   if(fd == 1)
   {
@@ -380,11 +399,11 @@ process_write(int fd, void *buffer, uint32_t size)
   {
     struct file * file = get_file(fd);
 	if(!file)
-	  return -1;
+	  return 0;
 
 	lock_acquire(&file_lock);
 
-	bytes_written = file_read(file, buffer, size);
+	bytes_written = file_write(file, buffer, size);
 
 	lock_release(&file_lock);
   }
