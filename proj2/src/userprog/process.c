@@ -21,14 +21,23 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static struct lock file_lock;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
+void
+process_init(void)
+{
+  lock_init(&file_lock);
+}
+
 tid_t
 process_execute (const char *file_name) 
 {
+  lock_acquire(&file_lock);
+  
   char *fn_copy;
   tid_t tid;
 
@@ -53,8 +62,14 @@ process_execute (const char *file_name)
   if (tid == TID_ERROR)
   {
     palloc_free_page (fn_copy); 
-	//TODO remove child_info from list and delete it in case of failure
   }
+
+  sema_down(&child_info->sema_start);
+
+  if(!child_info->success)
+	tid = TID_ERROR;
+
+  lock_release(&file_lock);
   return tid;
 }
 
@@ -230,6 +245,56 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
+
+/* Create a file */
+bool
+process_file_create(char* name, uint32_t size)
+{
+  lock_acquire(&file_lock);
+  bool success = filesys_create(name,size);
+  lock_release(&file_lock);
+  return success;
+
+}
+
+bool 
+process_file_remove(char *name)
+{
+  lock_acquire(&file_lock);
+  bool success = filesys_remove(name);
+  lock_release(&file_lock);
+  return success;
+}
+
+int 
+process_file_open(char *name)
+{
+  lock_acquire(&file_lock);
+  struct file * file = filesys_open(name);
+  int fd = -1;
+
+  if(file)
+  {
+	/* Get a new fd from the current thread*/
+	fd = thread_current()->file_counter++;
+
+    /* Create a struct to associate this file with a file number */
+    struct file_info * fi = malloc(sizeof(struct file_info));   
+    fi->file = file;
+    fi->fd = fd; 
+
+    /* Add the struct to the current thread's list of open files */
+    list_push_back(&thread_current()->files,&fi->elem);
+  }
+
+  lock_release(&file_lock);
+
+  return fd;
+}
+
+
+
+
 
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */

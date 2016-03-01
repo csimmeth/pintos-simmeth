@@ -7,7 +7,6 @@
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
-#include "filesys/filesys.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -16,17 +15,16 @@ static void exit(struct intr_frame *f);
 static void exec(struct intr_frame *f);
 static void wait(struct intr_frame *f);
 static void create(struct intr_frame *f);
+static void remove(struct intr_frame *f);
 static void open(struct intr_frame *f);
 static void write(struct intr_frame *f);
 
-struct lock file_lock;
 
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  lock_init(&file_lock);
 }
 
 static void 
@@ -87,7 +85,11 @@ syscall_handler (struct intr_frame *f)
 	   create(f);
 	   break;
 
-	case SYS_OPEN
+	case SYS_REMOVE:
+	   remove(f);
+	   break;
+
+	case SYS_OPEN:
 	   open(f);
 	   break;
 
@@ -116,9 +118,10 @@ exit(struct intr_frame * f)
   if(thread_current()->p_info != NULL){
     thread_current()->p_info->exit_status = status;
   }
-  thread_current()->exit_status = status;
 
-  f->eax = status;
+  /* Store the thread's exit status for itself
+   * Needed for final printout */
+  thread_current()->exit_status = status;
 
   thread_exit();	
 }
@@ -128,30 +131,10 @@ exec(struct intr_frame *f)
 {
   char * file_name = get_char_ptr(f,1);
   
-  lock_acquire(&file_lock);
   tid_t tid = process_execute(file_name); 
 
-  /* If the execution failed, return */
-  if(tid == TID_ERROR){
-	f->eax = tid;
-    lock_release(&file_lock);
-	return;
-  }
+  f->eax = tid;
 
-  /* Get the info of the created process */
-  struct list_elem *e = list_back(&thread_current()->children);
-  struct process_info *p = list_entry(e,struct process_info, elem);
-
-  /* Wait until the process has been initialized */
-  sema_down(&p->sema_start);
-
-  /* Return the pid */
-  if(p->success)
-    f->eax = p->tid;
-  else
-	f->eax = TID_ERROR;
-
-   lock_release(&file_lock);
 }
 
 static void
@@ -166,26 +149,28 @@ wait(struct intr_frame *f)
 static void
 create(struct intr_frame *f)
 {
-  
   char *name = get_char_ptr(f,1);
   uint32_t size = get_int(f,2);
 
-  lock_acquire(&file_lock);
-
-  bool success = filesys_create(name, size);
+  bool success = process_file_create(name, size);
 
   f->eax = success;
+}
 
-  lock_release(&file_lock);
-
+static void
+remove(struct intr_frame *f)
+{
+  char *name = get_char_ptr(f,1);
+  bool success = process_file_remove(name);
+  f->eax = success;
 }
 
 static void
 open(struct intr_frame *f)
 {
-  char *file_name = get_char_ptr(f,1);
-
-  lock_acquire(&file_lock);
+  char *name = get_char_ptr(f,1);
+  int fd = process_file_open(name);
+  f->eax = fd;
 }
 
 static void 

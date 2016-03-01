@@ -94,10 +94,14 @@ struct thread
     struct list_elem elem;              /* List element. */
 
 	struct list children;
+	struct list files;
+	int file_counter;
+
 	struct process_info  * p_info;
 	bool is_process;
 	int exit_status;
 	char process_name[16];
+   	
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

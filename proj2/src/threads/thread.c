@@ -93,6 +93,9 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
+  /* Initialize process file lock */
+  process_init();
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -479,8 +482,16 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->is_process = false;
+
+  /* Defaults to -1 in case anything goes wrong */
   t->exit_status = -1;
+  
+  /* Skip the first two file numbers */
+  t->file_counter = 2;
+
+  /* Initialize the lists */
   list_init(&t->children);
+  list_init(&t->files);
   
   /* Copy the first word of name to process_name */
   int i = 0;
