@@ -109,7 +109,6 @@ exit(struct intr_frame * f)
   thread_current()->exit_status = status;
 
   f->eax = status;
-   //printf("Exit Status: %d\n", f->eax);
 
   thread_exit();	
 }

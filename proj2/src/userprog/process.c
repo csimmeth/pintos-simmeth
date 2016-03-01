@@ -74,16 +74,19 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
-
-  /* If load failed, quit. */
   palloc_free_page (file_name);
 
-  /* Because the parent blocks, p_info will always be available */
   thread_current()->p_info->success = success;
+
+  /* If load failed, quit. */
+  if (!success) 
+  {
+    thread_exit ();
+  }
+
+  /* Because the parent blocks, p_info will always be available */
   sema_up(&thread_current()->p_info->sema_start);
 
-  if (!success) 
-    thread_exit ();
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -148,35 +151,49 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-
   if(cur->is_process){
     printf("%s: exit(%d)\n",cur->process_name, cur->exit_status);
   }
 
   /* Remove all dynamic memory for child process info */
-  struct list_elem *e;
+  /* This happen even if the thread is not a process 
+   * since the list will just be empty */
   struct list *c = &cur->children;
-  for(e = list_begin (c); e != list_end(c); e = list_next(e))
+  struct list_elem *e = list_begin (c);
+  while(e != list_end(c))
+  //for(e = list_begin (c); e != list_end(c); e = list_next(e))
   {
     struct process_info * child_info = list_entry(e, struct process_info,
 		 										    elem);
+    e = list_next(e);	
 
-	/* Mark that the parent has quit for each child*/
+	/* Mark that the parent has quit for each child
+	 * that has not already exited*/
 	if(child_info->child != NULL)
 	  child_info->child->p_info = NULL;
 
     free(child_info);
   }
 
-  /* If a process is waiting, release it */
+  /* Modify p_info to show that this child has quit
+   * if the parent has not already quit */
   if(cur->p_info != NULL){
-    struct process_info * p = cur->p_info;
-	
-	/* Mark that this thread is no longer active */
-	p->child = NULL;
 
-	sema_up(&p->sema_finish);
+	/* Mark that this thread is no longer active */
+	cur->p_info->child = NULL;
+	
+	/* If the parent is waiting, release it */
+	sema_up(&cur->p_info->sema_finish);
+
+	/* Check if this thread ever got started */
+	if(!cur->p_info->success)
+	{
+	  /* If it did not, release the creator */
+	  sema_up(&cur->p_info->sema_start);
+	}
+
   }
+
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -298,8 +315,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
   char * fn_copy = NULL;
 
 
+  /* Mark that this is a process */
+  t->is_process = true;
 
   /* Allocate and activate page directory. */
+  //TODO pagedir_destroy if this fails later
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
@@ -317,9 +337,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (args);
-
-  /* Mark that this is a process */
-  t->is_process = true;
 
   /* Done with the copy */
   if(fn_copy != NULL)
