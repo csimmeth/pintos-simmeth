@@ -26,8 +26,9 @@ syscall_init (void)
 static void 
 verify_addr(void * a)
 {
-  if(a == NULL || a >= PHYS_BASE)
-	thread_exit();
+  if(!a || !is_user_vaddr(a) ||
+  !pagedir_get_page(thread_current()->pagedir,a))
+	  thread_exit();
 }
 
 static void * 
@@ -45,6 +46,7 @@ get_int(struct intr_frame *f, int arg){
 
 static char*
 get_char_ptr(struct intr_frame *f, int arg){
+  verify_addr(*(char**)get_arg(f,arg));
   return *(char**)get_arg(f,arg);
 }
 
@@ -55,14 +57,8 @@ syscall_handler (struct intr_frame *f)
   // Check for invalid memory address 
   verify_addr(f->esp);
 	
-  void * page = pagedir_get_page(thread_current()->pagedir,f->esp);
-  if(page == NULL){
-     thread_exit ();
-  }
-
   int syscall = get_int(f,0); 
-
-
+  
   switch(syscall){
 
 	case SYS_HALT:
@@ -117,6 +113,7 @@ static void
 exec(struct intr_frame *f)
 {
   char * file_name = get_char_ptr(f,1);
+  //printf("File: %s\n", file_name);
   tid_t tid = process_execute(file_name); 
 
   /* If the execution failed, return */
