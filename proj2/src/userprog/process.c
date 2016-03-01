@@ -136,12 +136,14 @@ process_wait (tid_t child_tid)
   // Wait for the thread to exit
   sema_down(&p_info->sema_finish);
   
+  int status = p_info->exit_status;
+
   // remove e from list and deallocate memory
   // Don't need to modify the child because it has exited
   list_remove(e);
   free(p_info);
 
-  return p_info->exit_status;
+  return status;
 }
 
 /* Free the current process's resources. */
