@@ -13,6 +13,12 @@ void process_init(void);
 bool process_file_create(char *name, uint32_t size);
 bool process_file_remove(char *name);
 int process_file_open(char *name);
+int process_filesize(int fd);
+int process_read(int fd, void*buffer, uint32_t size);
+int process_write(int fd, void*buffer, uint32_t size);
+void process_seek(int fd, uint32_t position);
+uint32_t process_tell(int fd);
+void process_close(int fd);
 
 struct process_info
 {

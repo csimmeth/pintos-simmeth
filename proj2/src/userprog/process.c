@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "devices/input.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -246,6 +247,31 @@ process_activate (void)
   tss_update ();
 }
 
+static struct file_info *
+get_file_info(int fd)
+{
+  struct list * files = &thread_current()->files;
+  struct list_elem *e;
+  for(e = list_begin(files); e != list_end(files); e = list_next(e))
+  {
+	struct file_info * fi = list_entry(e, struct file_info,elem);
+	if(fi->fd == fd)
+	  return fi;
+  }
+  return NULL;
+}
+
+static struct file *
+get_file(int fd)
+{
+  struct file_info * fi = get_file_info(fd);
+
+  if(fi)
+	return fi->file;
+
+  return NULL;
+}
+
 /* Create a file */
 bool
 process_file_create(char* name, uint32_t size)
@@ -254,7 +280,6 @@ process_file_create(char* name, uint32_t size)
   bool success = filesys_create(name,size);
   lock_release(&file_lock);
   return success;
-
 }
 
 bool 
@@ -292,7 +317,126 @@ process_file_open(char *name)
   return fd;
 }
 
+int
+process_filesize(int fd)
+{
 
+  struct file * file = get_file(fd);
+  if(!file)
+	return -1;
+
+  lock_acquire(&file_lock);
+
+  int length =  file_length(file);
+
+  lock_release(&file_lock);
+  
+  return length;
+}
+
+int 
+process_read(int fd, void *buffer, uint32_t size)
+{
+
+  int bytes_read = -1;
+
+
+  if(fd == 0)
+  {
+    uint8_t input = input_getc();
+	*(char*)buffer = input;
+	bytes_read = 1;
+  }
+  else
+  {
+    struct file * file = get_file(fd);
+    /* Check that the file is vaild */
+    if(!file)
+      return -1;
+
+	 
+  lock_acquire(&file_lock);
+  bytes_read = file_read(file, buffer, size);
+  lock_release(&file_lock);
+	 
+  }
+
+
+  return bytes_read;
+}
+
+int
+process_write(int fd, void *buffer, uint32_t size)
+{
+
+  int bytes_written= -1;
+
+  if(fd == 1)
+  {
+    putbuf(buffer,size);
+	bytes_written = size;
+  }
+  else
+  {
+    struct file * file = get_file(fd);
+	if(!file)
+	  return -1;
+
+	lock_acquire(&file_lock);
+
+	bytes_written = file_read(file, buffer, size);
+
+	lock_release(&file_lock);
+  }
+
+  return bytes_written;
+}
+
+void
+process_seek(int fd, uint32_t position)
+{
+
+  lock_acquire(&file_lock);
+
+  struct file * file = get_file(fd); 
+  if(file)
+    file_seek(file,position);
+
+	lock_release(&file_lock);
+}
+
+uint32_t 
+process_tell(int fd)
+{
+  struct file * file = get_file(fd);
+  if(!file)
+	return 0;
+  
+  lock_acquire(&file_lock);
+
+  uint32_t pos = file_tell(file);
+
+  lock_release(&file_lock);
+
+  return pos;
+}
+
+void 
+process_close(int fd)
+{
+  struct file_info * fi = get_file_info(fd);  
+  if(fi)
+  {
+	lock_acquire(&file_lock);
+
+    file_close(fi->file);
+	list_remove(&fi->elem);
+	free(fi);
+
+	lock_release(&file_lock);
+
+  }
+}
 
 
 

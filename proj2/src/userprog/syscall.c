@@ -17,7 +17,12 @@ static void wait(struct intr_frame *f);
 static void create(struct intr_frame *f);
 static void remove(struct intr_frame *f);
 static void open(struct intr_frame *f);
+static void filesize(struct intr_frame *f);
+static void read(struct intr_frame *f);
 static void write(struct intr_frame *f);
+static void seek(struct intr_frame *f);
+static void tell(struct intr_frame *f);
+static void close(struct intr_frame *f);
 
 
 
@@ -30,6 +35,8 @@ syscall_init (void)
 static void 
 verify_addr(void * a)
 {
+  /* Check that the address is not null, is part of user memory, 
+   * and is part of a valid page */
   if(!a || !is_user_vaddr(a) ||
   !pagedir_get_page(thread_current()->pagedir,a))
 	  thread_exit();
@@ -52,6 +59,13 @@ static char*
 get_char_ptr(struct intr_frame *f, int arg){
   verify_addr(*(char**)get_arg(f,arg));
   return *(char**)get_arg(f,arg);
+}
+
+static void*
+get_void_ptr(struct intr_frame *f, int arg)
+{
+  verify_addr(*(void**)get_arg(f,arg));
+  return *(void**)get_arg(f,arg);
 }
 
 static void
@@ -92,9 +106,29 @@ syscall_handler (struct intr_frame *f)
 	case SYS_OPEN:
 	   open(f);
 	   break;
+	
+	case SYS_FILESIZE:
+       filesize(f);
+	   break;
+
+	case SYS_READ:
+	   read(f);
+	   break;
 
 	case SYS_WRITE:
 	   write(f);
+	   break;
+
+	case SYS_SEEK:
+	   seek(f);
+	   break;
+
+	case SYS_TELL:
+	   tell(f);
+	   break;
+	
+	case SYS_CLOSE:
+	   close(f);
 	   break;
 
 	default:
@@ -174,15 +208,58 @@ open(struct intr_frame *f)
 }
 
 static void 
-write(struct intr_frame * f)
+filesize(struct intr_frame * f)
 {
-  //int fd = get_int(f,1);
-  //printf("FD: %d\n", fd);
-  char * buffer = get_char_ptr(f,2);
-  int size = get_int(f,3);
-  putbuf(buffer,size);
-
+  int fd = get_int(f,1);
+  int size = process_filesize(fd);
+  f->eax = size;  
 }
 
-//TODO synch for all file sys calls
-//deny writes to the running file
+static void 
+read(struct intr_frame * f)
+{
+  int fd = get_int(f,1);
+  void * buffer = get_void_ptr(f,2); 
+  uint32_t size = get_int(f,3);
+
+  int read_size = process_read(fd, buffer, size);
+
+  f->eax = read_size;
+}
+
+static void 
+write(struct intr_frame * f)
+{
+  int fd = get_int(f,1);
+  void * buffer = get_void_ptr(f,2);
+  int size = get_int(f,3);
+
+  int write_size = process_write(fd, buffer, size);
+
+  f->eax = write_size;
+
+}
+static void 
+seek(struct intr_frame * f)
+{
+  int fd = get_int(f,1);
+  uint32_t position = get_int(f,2);
+
+  process_seek(fd, position);
+}
+  
+static void 
+tell(struct intr_frame * f)
+{
+  int fd = get_int(f,1);
+  uint32_t pos = process_tell(fd);
+
+  f->eax = pos;
+}
+
+static void 
+close(struct intr_frame * f)
+{
+  int fd = get_int(f,1);
+  process_close(fd);
+}
