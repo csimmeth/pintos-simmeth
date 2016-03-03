@@ -796,9 +796,14 @@ setup_stack (void **esp)
   return success;
 }
 
-//TODO impilement error checking
-//If arguments > page, return false
-//If page can not be allocated... etc...
+/* Make sure the esp is within a page from PHYS_BASE */
+static bool 
+dec_esp(void ** esp,int size)
+{
+ *esp -= size;
+ return (void*)*esp > (void*)((uint8_t *) PHYS_BASE) - PGSIZE;
+}
+
 static bool
 init_stack(void **esp, const char *file_name)
 {
@@ -832,7 +837,14 @@ init_stack(void **esp, const char *file_name)
   {
 	int size = strnlen(args, PGSIZE);
 
-	*esp -= size + 1;
+	if(!dec_esp(esp,size+1))
+    { 
+	  palloc_free_page(fn_copy);
+      palloc_free_page(pointers);
+      return false; 
+	}
+
+
 	strlcpy((char*)*esp,args,size + 1);
 	pointers[argc] = *esp;
 
@@ -848,7 +860,13 @@ init_stack(void **esp, const char *file_name)
   pointers[argc] = NULL;
   for(int i = argc; i >= 0; i--)
   {
-    *esp -= 4;
+	/* Decrement and check validity */
+	if(!dec_esp(esp,4))
+    { 
+	  palloc_free_page(fn_copy);
+      palloc_free_page(pointers);
+      return false; 
+	}
     *(int*)*esp = (int)pointers[i];
   }
 
@@ -856,20 +874,30 @@ init_stack(void **esp, const char *file_name)
   /* Add argv and argc */
   int * argv = *esp;
 
-  *esp -= 4;
-  *(int*)*esp = (int)argv; 
+  /* Check the next 12 bytes all at once for conveniance*/
+  if(!dec_esp(esp,12))
+  {
+    palloc_free_page(fn_copy);
+    palloc_free_page(pointers);
+    return false; 
+  }
 
-  *esp -= 4;
-  *(int*)*esp = (int)argc; 
+  /* We then need to add because we decrimented extra */
+  *(int*)(*esp+8) = (int)argv; 
+
+  *(int*)(*esp+4) = (int)argc; 
 
   /* Add a fake return */
-  *esp -= 4;
   *(int*)*esp = (int)NULL; 
 
   palloc_free_page(fn_copy);
   palloc_free_page(pointers);
-  //hex_dump(0,*esp,PHYS_BASE - *esp,true); //TODO remove this
-  ///
+
+  //return verify_esp(esp);
+
+  /* Following line is for testing */
+  //hex_dump(0,*esp,PHYS_BASE - *esp,true); 
+  
   success = true;
   return success;
   
