@@ -250,6 +250,23 @@ process_exit (void)
     }
 }
 
+void
+syscall_process_exit(int status){
+  struct thread * t = thread_current();
+
+  /* Store the exit status for the parent */
+  if(t->p_info != NULL)
+  {
+    t->p_info->exit_status = status;	
+  }
+
+  /* Store the exit status for self - needed for printout */
+  t->exit_status = status;
+
+  thread_exit();
+
+}
+
 /* Sets up the CPU for running user code in the current
    thread.
    This function is called on every context switch. */

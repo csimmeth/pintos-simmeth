@@ -148,16 +148,7 @@ exit(struct intr_frame * f)
 {
   int status = get_int(f,1);
 
-  /* Store the exit status for the parent */
-  if(thread_current()->p_info != NULL){
-    thread_current()->p_info->exit_status = status;
-  }
-
-  /* Store the thread's exit status for itself
-   * Needed for final printout */
-  thread_current()->exit_status = status;
-
-  thread_exit();	
+  syscall_process_exit(status);
 }
 
 static void
