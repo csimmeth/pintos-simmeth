@@ -200,13 +200,14 @@ allowed, such as a write syscall to an invalid address, the verify_addr
 function will call thread_exit(). However, the memory allocated earlier
 will still be freed in process_exit, so there is no memory leak.
 
-In the calling of a syscall, there is only one lock, the file_lock.
+In my implementation of syscalls there is only one lock, the file_lock.
 Most of the time, this lock is only acquired after all error checking
 has happened, and it is released shortly after. In cases like 
 process_file_open, where the function acquires the lock before 
 something can go wrong (like filesys_open) The rest of the code is
-put in an if statement, so if something does go wrong, it skips that part
-and goes straight to the bottom of the function to release the lock.
+put in an if statement, so if something does go wrong, it skips
+subsequent code and goes straight to the bottom of the function to 
+release the lock.
 
 ---- SYNCHRONIZATION ----
 
@@ -215,6 +216,19 @@ and goes straight to the bottom of the function to release the lock.
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
+When a process calls exec, it allocates memory for a new struct
+process_info. This struct has a semaphore called sema_start. After
+calling thread_create, the parent process calls sema_down(sema_start).
+When the child is finished initializing, and all goes well, it 
+calls sema_up(sema_start) and marks its tid in the struct. The parent
+resumes and passes it back to the syscall to return to the process.
+If something happens and the child fails, thread_exit is called.
+thread_exit checks to see if it was every fully initialized. If it
+was not, it calls sema_up(sema_start) so that the parent is not 
+stuck waiting forever. The default value for tid is -1 so the 
+parent reads this from the struct since it was never modified and 
+returns -1.
+
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
 >> calls wait(C) before C exits?  After C exits?  How do you ensure
@@ -222,16 +236,38 @@ and goes straight to the bottom of the function to release the lock.
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
+The only memory that is allocated is for the struct process_info that
+the parent P creates when is calles exec on C. If P calls wait before
+C exits, then C calls sema_up when it exits and P can resume. If 
+P calls wait after C has exited, then C has already called sema_up,
+and so when P calls sema_down it can continue immediately. When P
+continues from a wait, it frees the memory for the process_info 
+associated with C. If C terminates without waiting before C, 
+it sets C->p_info to NULL to signal to C that its parent has exited.
+It then frees the memory for process_info. If C terminates without
+waiting after C has exited, then it just frees the memory. 
+
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+I chose to implement access to user memory by calling pagedir_get_page
+to verify that the process supplied a valid address. I did this
+because it was easier to implement.
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+The advantage to this design is that it is very simple, and there
+is no chance for accidental duplicate numbers. A disadvantage is 
+that iterating through the list to find the right file descriptor
+could take a long time if a process has opened a lot of files.
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+I did not change it. 
 
 			   SURVEY QUESTIONS
 			   ================
