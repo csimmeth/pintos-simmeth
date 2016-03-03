@@ -44,19 +44,30 @@ through pointers in reverse order to place the pointers on the
 stack in order to point to the elements from right to left.
 
 To avoid overflowing the stack page I check that esp is not below
-PHYS_BASE - PGSIZE. This ensures that I am within one page of 
-PHYS_BASE.
+PHYS_BASE - PGSIZE every time I decrement esp.. This ensures that 
+I am within one page of PHYS_BASE and do not overflow the page.
 
 
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
 
+strtok() uses global data. This means that if one thread calls
+strtok() and then another calls strtok() before the first
+thread is finished, the first thread will get an incorrect
+result from future function calls.
+
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
 
-faster, less memory allocation
+The UNIX approach leads to a more efficient kernel because the kernel
+does not have to allocate memory for copies of the string and it does
+not have to spend time tokenizing the string.
+
+The shell can also verify that the executable exists, which it can 
+do much faster than the kernel since the kernel must create a new 
+thread before it checks the validity of the file.
 
 			     SYSTEM CALLS
 			     ============
@@ -67,14 +78,74 @@ faster, less memory allocation
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+ struct process_info
+ {
+   tid_t tid;
+   struct thread * child;
+   struct semaphore sema_start;
+   struct semaphore sema_finish;
+   int exit_status;
+   struct list_elem elem;
+   bool success;
+ };
+
+process_info is maintained as part of the parent process and 
+has information about a child. It allows synchronization and exit
+status communication.
+ 
+ struct file_info
+ {
+   struct file * file;
+   int fd;
+   struct list_elem elem;
+ };
+
+file_info records an association between pointers to files and file
+descriptors. 
+
+Added to struct thread:
+
+struct list children;
+Maintains a list of child processes.
+
+struct list files;
+Maintains a list of open files.
+
+int file_counter;
+Allows the allocation of the next file descriptor.
+
+struct process_info  * p_info;
+Allows the thread to modify the information available to its parent.
+
+bool is_process;
+Records if the thread is a process thread.
+
+int exit_status;
+char process_name[16];
+These two record information for the final printout.
+
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
+
+Each thread has a list of open files. When a file is opened a new file
+descriptor is assigned to that file, and the two are stored in a 
+struct file_info. The thread has a list of these files and can call
+get_file(int fd) to get the file associated with a file descriptor.
 
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
+
+The function get_arg(intr_frame *f, int arg) reads argument[arg] 
+from the interrupt frame f. When it does this, it validates the 
+data that it retrieves with the function verify_arrg. This function
+checks that the address in not null, is part of user memory, and is
+part of a valid page. The helper functions get_int, get_char_ptr,
+and get_void_ptr all dereference the argument, and then call 
+verify_addr on the new value to make sure it is still valid.
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -83,8 +154,26 @@ faster, less memory allocation
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+In both cases, the data could be located all on a single page, and 
+so at minimum this will cause one function call. In the worst case,
+the data will be spread over 2 pages, and so result in two function
+calls. There is not much room for improvement in the full page case,
+since it is almost guaranteed that this data will span two pages,
+but in the 2 bytes case, the user program could make sure to allocate
+data on a single page if they are allocating small amounts of data.
+
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+The wait syscall simply calls process_wait and then returns the exit 
+status. Process wait starts by iterating through the list of 
+the current thread's children, looking for a child with the supplied
+thread id. When the child is found, the current thread calls 
+sema_down on the sema_finish that the child also has access to by
+means of the process_info struct. During process_exit, the child
+thread will check if the struct still exists, and, if it does, it 
+calls sema_up on the sema_finish. This releases the parent thread
+to continue.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -99,6 +188,25 @@ faster, less memory allocation
 >> allocated resources (locks, buffers, etc.) are freed?  In a few
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
+
+I make sure that any memory that a thread has allocated and has
+not yet deallocated is freed in process_exit or thread_exit. This means
+that I do not have to worry about deallocating memory if something
+goes wrong, and I can just call thread_exit.
+
+For example, when a thread opens a file, it allocates memory for 
+as struct file_info. If a thread later does something that is not
+allowed, such as a write syscall to an invalid address, the verify_addr
+function will call thread_exit(). However, the memory allocated earlier
+will still be freed in process_exit, so there is no memory leak.
+
+In the calling of a syscall, there is only one lock, the file_lock.
+Most of the time, this lock is only acquired after all error checking
+has happened, and it is released shortly after. In cases like 
+process_file_open, where the function acquires the lock before 
+something can go wrong (like filesys_open) The rest of the code is
+put in an if statement, so if something does go wrong, it skips that part
+and goes straight to the bottom of the function to release the lock.
 
 ---- SYNCHRONIZATION ----
 
