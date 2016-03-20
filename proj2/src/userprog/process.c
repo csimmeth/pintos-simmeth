@@ -25,16 +25,17 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static struct lock file_lock;
 static struct file * get_file(int fd);
 
-/* Starts a new thread running a user program loaded from
-   FILENAME.  The new thread may be scheduled (and may even exit)
-   before process_execute() returns.  Returns the new process's
-   thread id, or TID_ERROR if the thread cannot be created. */
+/* Initialize data neccisary for processes */ 
 void
 process_init(void)
 {
   lock_init(&file_lock);
 }
 
+/* Starts a new thread running a user program loaded from
+   FILENAME.  The new thread may be scheduled (and may even exit)
+   before process_execute() returns.  Returns the new process's
+   thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
 process_execute (const char *file_name) 
 {
@@ -103,6 +104,7 @@ start_process (void *file_name_)
     thread_exit ();
   }
 
+  /* Open the current file to deny writes */
   int fd = process_file_open(thread_current()->process_name);
 
   lock_acquire(&file_lock);
@@ -566,7 +568,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   t->is_process = true;
 
   /* Allocate and activate page directory. */
-  //TODO pagedir_destroy if this fails later
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
