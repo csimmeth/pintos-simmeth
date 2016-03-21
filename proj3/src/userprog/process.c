@@ -46,7 +46,7 @@ process_execute (const char *file_name)
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
+  fn_copy = frame_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
@@ -64,7 +64,8 @@ process_execute (const char *file_name)
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
   {
-    palloc_free_page (fn_copy); 
+    //palloc_free_page (fn_copy); 
+	frame_free_page(fn_copy);
   }
 
   lock_release(&file_lock);
@@ -93,7 +94,8 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
-  palloc_free_page (file_name);
+  //palloc_free_page (file_name);
+  frame_free_page(file_name);
 
   thread_current()->p_info->success = success;
 
@@ -576,7 +578,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Create a copy of the file name */
-  fn_copy = palloc_get_page (0);
+  fn_copy = frame_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
@@ -589,7 +591,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file = filesys_open (args);
   /* Done with the copy */
   if(fn_copy != NULL)
-    palloc_free_page (fn_copy); 
+	frame_free_page(fn_copy);
+    //palloc_free_page (fn_copy); 
 
   if (file == NULL) 
     {
@@ -771,14 +774,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
       /* Get a page of memory. */
       //uint8_t *kpage = palloc_get_page (PAL_USER);
-      uint8_t *kpage = frame_get_page (false);
+      uint8_t *kpage = frame_get_page(PAL_USER);
       if (kpage == NULL)
         return false;
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          palloc_free_page (kpage);
+          //palloc_free_page (kpage);
+		  frame_free_page(kpage);
           return false; 
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
@@ -786,7 +790,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
-          palloc_free_page (kpage);
+          //palloc_free_page (kpage);
+		  frame_free_page(kpage);
           return false; 
         }
 
@@ -807,14 +812,15 @@ setup_stack (void **esp)
   bool success = false;
 
   //kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  kpage = frame_get_page (true);
+  kpage = frame_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         *esp = PHYS_BASE;
       else
-        palloc_free_page (kpage);
+		frame_free_page(kpage);
+        //palloc_free_page (kpage);
     }
   return success;
 }
@@ -833,7 +839,8 @@ init_stack(void **esp, const char *file_name)
 
   bool success = false;
 
-  char * fn_copy = palloc_get_page (0);
+  //char * fn_copy = palloc_get_page (0);
+  char * fn_copy = frame_get_page(0);
   if(fn_copy == NULL)
 	return success;
 
@@ -841,12 +848,14 @@ init_stack(void **esp, const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   /* Create an array to store pointers to each arg */
-  void ** pointers = palloc_get_page(0);
+  //void ** pointers = palloc_get_page(0);
+  void ** pointers = frame_get_page(0);
   
   /* Check for successful memory allocation */
   if( pointers == NULL)
   {
-    palloc_free_page(fn_copy);
+    //palloc_free_page(fn_copy);
+	frame_free_page(fn_copy);
     return success;
   }
 
@@ -862,8 +871,10 @@ init_stack(void **esp, const char *file_name)
 
 	if(!dec_esp(esp,size+1))
     { 
-	  palloc_free_page(fn_copy);
-      palloc_free_page(pointers);
+	 // palloc_free_page(fn_copy);
+	  frame_free_page(fn_copy);
+     // palloc_free_page(pointers);
+	  frame_free_page(pointers);
       return false; 
 	}
 
@@ -886,8 +897,10 @@ init_stack(void **esp, const char *file_name)
 	/* Decrement and check validity */
 	if(!dec_esp(esp,4))
     { 
-	  palloc_free_page(fn_copy);
-      palloc_free_page(pointers);
+	  //palloc_free_page(fn_copy);
+	  frame_free_page(fn_copy);
+      //palloc_free_page(pointers);
+	  frame_free_page(pointers);
       return false; 
 	}
     *(int*)*esp = (int)pointers[i];
@@ -900,8 +913,10 @@ init_stack(void **esp, const char *file_name)
   /* Check the next 12 bytes all at once for conveniance*/
   if(!dec_esp(esp,12))
   {
-    palloc_free_page(fn_copy);
-    palloc_free_page(pointers);
+    //palloc_free_page(fn_copy);
+	frame_free_page(fn_copy);
+    //palloc_free_page(pointers);
+    frame_free_page(pointers);
     return false; 
   }
 
@@ -913,8 +928,10 @@ init_stack(void **esp, const char *file_name)
   /* Add a fake return */
   *(int*)*esp = (int)NULL; 
 
-  palloc_free_page(fn_copy);
-  palloc_free_page(pointers);
+  //palloc_free_page(fn_copy);
+  frame_free_page(fn_copy);
+  //palloc_free_page(pointers);
+  frame_free_page(pointers);
 
   //return verify_esp(esp);
 
@@ -942,6 +959,10 @@ install_page (void *upage, void *kpage, bool writable)
 
   /* Verify that there's not already a page at that virtual
      address, then map our page there. */
-  return (pagedir_get_page (t->pagedir, upage) == NULL
+  bool success = (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+  if(success)
+	frame_install_page(kpage,upage,t);
+
+  return(success);
 }

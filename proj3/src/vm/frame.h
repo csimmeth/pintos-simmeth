@@ -2,8 +2,26 @@
 #define VM_FRAME_H
 
 #include <stdio.h> /* needed for bool? */
+#include "threads/thread.h"
+#include "threads/palloc.h"
 
-void frame_init();
-void * frame_get_page(bool zero);
+void frame_init(void);
+void * frame_get_page(enum palloc_flags flags);
+void frame_install_page(void * kpage, 
+	                    void * upage, 
+						struct thread * owner);
+void frame_free_page(void * kpage);
+
+struct frame_info
+{
+  struct list_elem elem;
+  void * kpage;
+  void * upage;
+  struct thread * owner;
+  // Access time to decide which one to evict
+  // tid so that when a thread exits it's entries
+  // can be freed
+
+};
 
 #endif /* vm/frame.h */
