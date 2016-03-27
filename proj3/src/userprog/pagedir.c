@@ -182,7 +182,8 @@ pagedir_set_dirty (uint32_t *pd, const void *vpage, bool dirty)
           *pte &= ~(uint32_t) PTE_D;
           invalidate_pagedir (pd);
         }
-    }
+	}
+    
 }
 
 /* Returns true if the PTE for virtual page VPAGE in PD has been
@@ -203,7 +204,7 @@ pagedir_set_accessed (uint32_t *pd, const void *vpage, bool accessed)
 {
   uint32_t *pte = lookup_page (pd, vpage, false);
   if (pte != NULL) 
-    {
+	  {
       if (accessed)
         *pte |= PTE_A;
       else 

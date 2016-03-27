@@ -20,6 +20,7 @@
 #include "threads/malloc.h"
 #include "devices/input.h"
 #include "vm/frame.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -36,6 +37,16 @@ process_init(void)
   lock_init(&file_lock);
 }
 
+void 
+acquire_file_lock(void){
+  lock_acquire(&file_lock);
+}
+
+void 
+release_file_lock(void){
+  lock_release(&file_lock);
+}
+
 tid_t
 process_execute (const char *file_name) 
 {
@@ -46,7 +57,8 @@ process_execute (const char *file_name)
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = frame_get_page (0);
+  //fn_copy = frame_get_page (0);
+  fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
@@ -578,7 +590,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Create a copy of the file name */
-  fn_copy = frame_get_page (0);
+  //fn_copy = frame_get_page (0);
+  fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
@@ -771,14 +784,23 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
+	  //printf("Adding page, read %d bytes\n",page_read_bytes);
+
+      struct thread *t = thread_current ();
+	  page_add(&t->supp_page_table,upage,file,page_read_bytes,writable);
+	  
+	  
 
       /* Get a page of memory. */
       //uint8_t *kpage = palloc_get_page (PAL_USER);
+	  /*
       uint8_t *kpage = frame_get_page(PAL_USER);
       if (kpage == NULL)
         return false;
 
+		*/
       /* Load this page. */
+	  /*
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
           //palloc_free_page (kpage);
@@ -787,13 +809,17 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
+	  */
+
       /* Add the page to the process's address space. */
+	  /*
       if (!install_page (upage, kpage, writable)) 
         {
           //palloc_free_page (kpage);
 		  frame_free_page(kpage);
           return false; 
         }
+		*/
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -811,6 +837,9 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
+  struct thread * t = thread_current();
+  //page_add(&t->supp_page_table,
+//	       ((uint8_t *) PHYS_BASE) - PGSIZE,NULL,0,true);
   //kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   kpage = frame_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
@@ -839,8 +868,8 @@ init_stack(void **esp, const char *file_name)
 
   bool success = false;
 
-  //char * fn_copy = palloc_get_page (0);
-  char * fn_copy = frame_get_page(0);
+  char * fn_copy = palloc_get_page (0);
+  //char * fn_copy = frame_get_page(0);
   if(fn_copy == NULL)
 	return success;
 
@@ -848,8 +877,8 @@ init_stack(void **esp, const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   /* Create an array to store pointers to each arg */
-  //void ** pointers = palloc_get_page(0);
-  void ** pointers = frame_get_page(0);
+  void ** pointers = palloc_get_page(0);
+  //void ** pointers = frame_get_page(0);
   
   /* Check for successful memory allocation */
   if( pointers == NULL)

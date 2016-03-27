@@ -1,9 +1,16 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "userprog/pagedir.h"
+#include "userprog/process.h"
+#include "vm/page.h"
+#include "vm/frame.h"
+
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -108,6 +115,63 @@ kill (struct intr_frame *f)
     }
 }
 
+static bool
+load_page (struct page_info * pi)
+{
+
+  size_t page_read_bytes = pi->read_bytes;
+  size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+
+  uint8_t * kpage;
+  /* Get a page of memory */
+  if(page_read_bytes != 0)
+    kpage = frame_get_page(PAL_USER);
+  else
+    kpage = frame_get_page(PAL_USER | PAL_ZERO);
+  if (kpage == NULL)
+  {
+	printf ("Cound not acquire frame\n");
+	return false;
+  }
+
+  if(page_read_bytes != 0)
+  {
+    /* Load this page. */
+	acquire_file_lock();
+    int bytes_loaded = file_read(pi->file,kpage,page_read_bytes);
+    bool loaded = bytes_loaded == (int) page_read_bytes;
+
+    release_file_lock();
+	if(!loaded)
+	{
+  	  frame_free_page(kpage);
+	  printf ("Failed loading file\n");
+	  return false;
+	}
+  }
+
+
+  memset(kpage + page_read_bytes, 0 , page_zero_bytes);
+
+  /* Add the page to the process's address space. */
+  struct thread *t = thread_current();
+  bool success = (pagedir_get_page (t->pagedir,pi->user_vaddr) == NULL 
+	              && pagedir_set_page (t->pagedir, pi->user_vaddr,
+					                kpage, pi->writable) ) ;
+
+  if(!success)
+  {
+    frame_free_page(kpage);
+	  printf ("Failed adding page to page table\n");
+    return false; 
+  }
+
+  frame_install_page(kpage,pi->user_vaddr,t);
+
+  return true;
+}
+
 /* Page fault handler.  This is a skeleton that must be filled in
    to implement virtual memory.  Some solutions to project 2 may
    also require modifying this code.
@@ -148,14 +212,36 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+  struct thread * t = thread_current();
+  struct list * supp_page_table = &t->supp_page_table;
+  struct list_elem *e;
+  struct page_info * page_info = NULL;
+  bool success = false;
+  printf("page fault on vaddr %p\n",fault_addr);
+  for( e = list_begin(supp_page_table); e != list_end(supp_page_table);
+	   e = list_next(e))
+  {
+	struct page_info * pi = list_entry(e, struct page_info,elem);
+	/* Check that the user_vaddr is within one page of the fault_addr */
+	if(pi->user_vaddr <= (uint8_t*) fault_addr && 
+	   pi->user_vaddr > (uint8_t*) fault_addr - PGSIZE)
+	{
+	   printf("It's a match! vaddr = %p\n",pi->user_vaddr);
+	   page_info = pi;
+       success = load_page(pi);
+	   break;
+	}
+  }
+
+  /* If we have not found a supp_page entry, kill the process */
+  if(page_info == NULL || !success)
+  {
+    printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  kill (f);
+    kill (f);
+  } 
 }
 

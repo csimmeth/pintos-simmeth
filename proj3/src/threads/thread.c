@@ -492,6 +492,7 @@ init_thread (struct thread *t, const char *name, int priority)
   /* Initialize the lists */
   list_init(&t->children);
   list_init(&t->files);
+  list_init(&t->supp_page_table);
   
   /* Copy the first word of name to process_name */
   int i = 0;
