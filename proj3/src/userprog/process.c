@@ -787,20 +787,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	  //printf("Adding page, read %d bytes\n",page_read_bytes);
 
       struct thread *t = thread_current ();
-	  page_add(&t->supp_page_table,upage,file,page_read_bytes,writable);
+	  page_add(&t->supp_page_table,upage,file,page_read_bytes,ofs,writable);
 	  
 	  
-
-      /* Get a page of memory. */
+/*
       //uint8_t *kpage = palloc_get_page (PAL_USER);
-	  /*
       uint8_t *kpage = frame_get_page(PAL_USER);
       if (kpage == NULL)
         return false;
 
-		*/
-      /* Load this page. */
-	  /*
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
           //palloc_free_page (kpage);
@@ -809,22 +804,20 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
-	  */
 
-      /* Add the page to the process's address space. */
-	  /*
       if (!install_page (upage, kpage, writable)) 
         {
           //palloc_free_page (kpage);
 		  frame_free_page(kpage);
           return false; 
         }
-		*/
 
+		*/
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
+	  ofs += page_read_bytes;
     }
   return true;
 }
@@ -834,13 +827,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  uint8_t *kpage;
+  //uint8_t *kpage;
   bool success = false;
 
   struct thread * t = thread_current();
-  //page_add(&t->supp_page_table,
-//	       ((uint8_t *) PHYS_BASE) - PGSIZE,NULL,0,true);
+  page_add(&t->supp_page_table,
+	       ((uint8_t *) PHYS_BASE) - PGSIZE,NULL,0,0,true);
+
   //kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  /*
   kpage = frame_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
@@ -851,6 +846,9 @@ setup_stack (void **esp)
 		frame_free_page(kpage);
         //palloc_free_page (kpage);
     }
+	*/
+  *esp = PHYS_BASE;
+  success = true;
   return success;
 }
 

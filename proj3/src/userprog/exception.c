@@ -135,11 +135,12 @@ load_page (struct page_info * pi)
 	return false;
   }
 
+ // printf("bytes to read: %d\n",page_read_bytes);
   if(page_read_bytes != 0)
   {
     /* Load this page. */
 	acquire_file_lock();
-    int bytes_loaded = file_read(pi->file,kpage,page_read_bytes);
+    int bytes_loaded = file_read_at(pi->file,kpage,page_read_bytes,pi->ofs);
     bool loaded = bytes_loaded == (int) page_read_bytes;
 
     release_file_lock();
@@ -217,16 +218,15 @@ page_fault (struct intr_frame *f)
   struct list_elem *e;
   struct page_info * page_info = NULL;
   bool success = false;
-  printf("page fault on vaddr %p\n",fault_addr);
+  //printf("page fault on vaddr %p\n",fault_addr);
   for( e = list_begin(supp_page_table); e != list_end(supp_page_table);
 	   e = list_next(e))
   {
 	struct page_info * pi = list_entry(e, struct page_info,elem);
 	/* Check that the user_vaddr is within one page of the fault_addr */
-	if(pi->user_vaddr <= (uint8_t*) fault_addr && 
-	   pi->user_vaddr > (uint8_t*) fault_addr - PGSIZE)
+	if(pg_no(fault_addr) == pg_no(pi->user_vaddr))
 	{
-	   printf("It's a match! vaddr = %p\n",pi->user_vaddr);
+//	   printf("It's a match! vaddr = %p\n",pi->user_vaddr);
 	   page_info = pi;
        success = load_page(pi);
 	   break;

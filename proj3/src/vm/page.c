@@ -12,6 +12,7 @@ void page_add(struct list * supp_page_table,
 	            uint8_t* user_vaddr,
 				struct file * file,
 				uint32_t read_bytes,
+				uint32_t ofs,
 				bool writable)
 {
 
@@ -20,6 +21,7 @@ void page_add(struct list * supp_page_table,
   pi->file = file;
   pi->read_bytes = read_bytes;
   pi->writable = writable;
+  pi->ofs = ofs;
 
   list_push_back(supp_page_table,&pi->elem);
 }

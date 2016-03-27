@@ -11,6 +11,7 @@ void page_add(struct list * supp_page_table,
 				uint8_t* user_vaddr,
 				struct file * file,
 				uint32_t read_bytes,
+				uint32_t ofsi,
 				bool writable);
 void page_remove(struct list * supp_page_table,
 				 uint8_t * user_vaddr);
@@ -24,8 +25,8 @@ struct page_info
   //
   struct file * file;
   uint32_t read_bytes;
+  uint32_t ofs;
   bool writable;
-
 };
 
 #endif /* vm/page.h */
