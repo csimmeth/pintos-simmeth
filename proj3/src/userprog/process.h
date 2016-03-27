@@ -20,7 +20,7 @@ int process_write(int fd, void*buffer, uint32_t size);
 void process_seek(int fd, uint32_t position);
 uint32_t process_tell(int fd);
 void process_close(int fd);
-void acquire_file_lock(void);
+bool acquire_file_lock(void);
 void release_file_lock(void);
 
 

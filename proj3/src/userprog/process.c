@@ -37,9 +37,16 @@ process_init(void)
   lock_init(&file_lock);
 }
 
-void 
+/* Returns true if the lock was acquired, false if the thread 
+ * already had the lock */
+bool 
 acquire_file_lock(void){
-  lock_acquire(&file_lock);
+  if(!lock_held_by_current_thread(&file_lock))
+  {
+    lock_acquire(&file_lock);
+	return true;
+  }
+  return false;
 }
 
 void 

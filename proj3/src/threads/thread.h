@@ -102,6 +102,7 @@ struct thread
 	bool is_process;
 	int exit_status;
 	char process_name[16];
+	void * stack_min;
    	
 
 #ifdef USERPROG

@@ -16,6 +16,9 @@ void page_add(struct list * supp_page_table,
 void page_remove(struct list * supp_page_table,
 				 uint8_t * user_vaddr);
 
+bool is_page(struct list * supp_page_table,
+				 uint8_t * user_vaddr);
+
 struct page_info
 {
   struct list_elem elem;

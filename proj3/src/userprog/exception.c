@@ -135,19 +135,32 @@ load_page (struct page_info * pi)
 	return false;
   }
 
- // printf("bytes to read: %d\n",page_read_bytes);
   if(page_read_bytes != 0)
   {
     /* Load this page. */
-	acquire_file_lock();
+    bool got_lock =	acquire_file_lock();
+	
+	/*
+	printf("Reading from file: %p\n",pi->file);
+	printf("Reading from loc: %d\n",pi->ofs);
+	printf("Reading this many bytes: %d\n",pi->read_bytes);
+	*/
+	
     int bytes_loaded = file_read_at(pi->file,kpage,page_read_bytes,pi->ofs);
+
     bool loaded = bytes_loaded == (int) page_read_bytes;
 
-    release_file_lock();
+	if(got_lock)
+	{
+      release_file_lock();
+	}
 	if(!loaded)
 	{
-  	  frame_free_page(kpage);
+	  printf("Failed at file: %p\n",pi->file);
+      printf("bytes to read: %d\n",page_read_bytes);
+	  printf("Bytes_loaded: %d\n",bytes_loaded);
 	  printf ("Failed loading file\n");
+  	  frame_free_page(kpage);
 	  return false;
 	}
   }
@@ -160,6 +173,7 @@ load_page (struct page_info * pi)
   bool success = (pagedir_get_page (t->pagedir,pi->user_vaddr) == NULL 
 	              && pagedir_set_page (t->pagedir, pi->user_vaddr,
 					                kpage, pi->writable) ) ;
+ // printf("Added vaddr from %p to %p\n",pi->user_vaddr,pi->user_vaddr+PGSIZE);
 
   if(!success)
   {

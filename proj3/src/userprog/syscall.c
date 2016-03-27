@@ -7,6 +7,7 @@
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
+#include "vm/page.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -38,8 +39,12 @@ verify_addr(void * a)
   /* Check that the address is not null, is part of user memory, 
    * and is part of a valid page */
   if(!a || !is_user_vaddr(a) ||
-  !pagedir_get_page(thread_current()->pagedir,a))
+  //!pagedir_get_page(thread_current()->pagedir,a))
+  !is_page(&thread_current()->supp_page_table,a))
+	{
+//	  printf("Invalid Address: %p\n",a);
 	  thread_exit();
+	}
 }
 
 static void * 
