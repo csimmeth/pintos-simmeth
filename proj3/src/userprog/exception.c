@@ -116,7 +116,7 @@ kill (struct intr_frame *f)
 }
 
 static bool
-load_page (struct page_info * pi)
+load_page (struct page_info * pi, struct thread * t)
 {
 
   size_t page_read_bytes = pi->read_bytes;
@@ -169,10 +169,15 @@ load_page (struct page_info * pi)
   memset(kpage + page_read_bytes, 0 , page_zero_bytes);
 
   /* Add the page to the process's address space. */
-  struct thread *t = thread_current();
-  bool success = (pagedir_get_page (t->pagedir,pi->user_vaddr) == NULL 
-	              && pagedir_set_page (t->pagedir, pi->user_vaddr,
-					                kpage, pi->writable) ) ;
+  //printf("Adding vaddr: %p\n",pi->user_vaddr);
+  bool success = (pagedir_get_page (t->pagedir,pi->user_vaddr) == NULL);
+ 
+  //printf("success: %d\n",success);
+  if(success)
+  {
+	 success = pagedir_set_page (t->pagedir, pi->user_vaddr,
+					                kpage, pi->writable) ;
+  }
  // printf("Added vaddr from %p to %p\n",pi->user_vaddr,pi->user_vaddr+PGSIZE);
 
   if(!success)
@@ -217,7 +222,6 @@ page_fault (struct intr_frame *f)
 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
-  intr_enable ();
 
   /* Count page faults. */
   page_fault_cnt++;
@@ -228,9 +232,9 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
   struct thread * t = thread_current();
+  intr_enable ();
   struct list * supp_page_table = &t->supp_page_table;
   struct list_elem *e;
-  struct page_info * page_info = NULL;
   bool success = false;
   //printf("page fault on vaddr %p\n",fault_addr);
   for( e = list_begin(supp_page_table); e != list_end(supp_page_table);
@@ -241,14 +245,29 @@ page_fault (struct intr_frame *f)
 	if(pg_no(fault_addr) == pg_no(pi->user_vaddr))
 	{
 //	   printf("It's a match! vaddr = %p\n",pi->user_vaddr);
-	   page_info = pi;
-       success = load_page(pi);
+       success = load_page(pi,t);
 	   break;
 	}
   }
 
+
+  if(!success)
+  {
+    int diff = f->esp - fault_addr;
+	/* Check if we need to grow the stack */
+	if(diff < 32 && diff >= 0){
+      //printf("diff: %d\n",diff);
+	  //printf("adding %p to page table\n",t->stack_min - PGSIZE);
+	  page_add(&t->supp_page_table, t->stack_min - PGSIZE,
+		      NULL,0,0,true);
+	  t->stack_min -= PGSIZE;
+	  success = true;
+	}
+
+  }
+
   /* If we have not found a supp_page entry, kill the process */
-  if(page_info == NULL || !success)
+  if(!success)
   {
     printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,

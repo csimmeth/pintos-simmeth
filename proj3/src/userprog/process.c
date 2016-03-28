@@ -440,6 +440,11 @@ process_write(int fd, void *buffer, uint32_t size)
 	if(!file)
 	  return 0;
 
+/*	if(is_read(thread_current()->supp_page_table,file))
+	{
+    	return -1;
+	}
+	*/
 	lock_acquire(&file_lock);
 
 	bytes_written = file_write(file, buffer, size);
@@ -779,6 +784,8 @@ static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
+  //printf("load segment starting, upage: %p\n",upage);
+
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
@@ -791,13 +798,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
-	  //printf("Adding page, read %d bytes\n",page_read_bytes);
 
       struct thread *t = thread_current ();
-	  page_add(&t->supp_page_table,upage,file,page_read_bytes,ofs,writable);
+	  page_add(&t->supp_page_table,upage,file,
+		  page_read_bytes,ofs,writable);
 	  
-	  
-/*
       //uint8_t *kpage = palloc_get_page (PAL_USER);
       uint8_t *kpage = frame_get_page(PAL_USER);
       if (kpage == NULL)
@@ -812,6 +817,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
 
+
       if (!install_page (upage, kpage, writable)) 
         {
           //palloc_free_page (kpage);
@@ -819,7 +825,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           return false; 
         }
 
-		*/
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
@@ -834,7 +839,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  //uint8_t *kpage;
+  uint8_t *kpage;
   bool success = false;
 
   struct thread * t = thread_current();
@@ -842,7 +847,6 @@ setup_stack (void **esp)
 	       ((uint8_t *) PHYS_BASE) - PGSIZE,NULL,0,0,true);
 
   //kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  /*
   kpage = frame_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
@@ -853,7 +857,6 @@ setup_stack (void **esp)
 		frame_free_page(kpage);
         //palloc_free_page (kpage);
     }
-	*/
   *esp = PHYS_BASE;
   success = true;
   return success;

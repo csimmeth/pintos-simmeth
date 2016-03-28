@@ -39,7 +39,7 @@ verify_addr(void * a)
   /* Check that the address is not null, is part of user memory, 
    * and is part of a valid page */
   if(!a || !is_user_vaddr(a) ||
-  //!pagedir_get_page(thread_current()->pagedir,a))
+ // !pagedir_get_page(thread_current()->pagedir,a))
   !is_page(&thread_current()->supp_page_table,a))
 	{
 //	  printf("Invalid Address: %p\n",a);
@@ -220,6 +220,7 @@ read(struct intr_frame * f)
 
   int read_size = process_read(fd, buffer, size);
 
+  //printf("read_size %d\n",read_size);
   f->eax = read_size;
 }
 
