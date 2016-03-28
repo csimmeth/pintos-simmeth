@@ -96,6 +96,7 @@ struct thread
 	struct list children;
 	struct list files;
 	struct list supp_page_table;
+	struct list mmaps;
 	int file_counter;
 
 	struct process_info  * p_info;

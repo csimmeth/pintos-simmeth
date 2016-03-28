@@ -306,11 +306,10 @@ process_activate (void)
 }
 
 static struct file_info *
-get_file_info(int fd)
+get_file_info(int fd, struct list * list)
 {
-  struct list * files = &thread_current()->files;
   struct list_elem *e;
-  for(e = list_begin(files); e != list_end(files); e = list_next(e))
+  for(e = list_begin(list); e != list_end(list); e = list_next(e))
   {
 	struct file_info * fi = list_entry(e, struct file_info,elem);
 	if(fi->fd == fd)
@@ -322,7 +321,8 @@ get_file_info(int fd)
 static struct file *
 get_file(int fd)
 {
-  struct file_info * fi = get_file_info(fd);
+  struct list * files = &thread_current()->files;
+  struct file_info * fi = get_file_info(fd,files);
 
   if(fi)
 	return fi->file;
@@ -440,11 +440,6 @@ process_write(int fd, void *buffer, uint32_t size)
 	if(!file)
 	  return 0;
 
-/*	if(is_read(thread_current()->supp_page_table,file))
-	{
-    	return -1;
-	}
-	*/
 	lock_acquire(&file_lock);
 
 	bytes_written = file_write(file, buffer, size);
@@ -487,7 +482,7 @@ process_tell(int fd)
 void 
 process_close(int fd)
 {
-  struct file_info * fi = get_file_info(fd);  
+  struct file_info * fi = get_file_info(fd,&thread_current()->files);  
   if(fi)
   {
 	lock_acquire(&file_lock);
@@ -499,6 +494,85 @@ process_close(int fd)
 	lock_release(&file_lock);
 
   }
+}
+
+int
+process_mmap(int fd, void * addr)
+{
+  struct file * file = get_file(fd); 
+  if(file == NULL)
+	return -1;
+
+  if(pg_ofs(addr) != 0)
+	return -1;
+  
+  lock_acquire(&file_lock);
+
+  int length = file_length(file);
+  file = file_reopen(file);
+
+  int pages = length / PGSIZE;
+  int extra = length % PGSIZE;
+  int ofs = 0;
+
+  struct list * supp_table = &thread_current()->supp_page_table;
+
+  for(int i = 0; i < pages; i++)
+  {
+	/* Check if this will overlap something */
+	if(is_page(supp_table,addr))
+	{
+	  /* If it does, remove previous page info and return */
+      remove_file_mappings(supp_table,file);
+	  lock_release(&file_lock);
+	  return -1;
+	}
+	page_add(&thread_current()->supp_page_table,(uint8_t*) addr,
+		     file, PGSIZE, ofs, true);
+
+    addr += PGSIZE;
+	ofs += PGSIZE;
+  }
+
+  if(extra != 0)
+  {
+	page_add(&thread_current()->supp_page_table, (uint8_t*) addr,
+		file, extra, ofs, true);
+  }
+
+
+	/* Get a new fd from the current thread*/
+  int mapid  = thread_current()->file_counter++;
+
+  /* Create a struct to associate this file with a file number */
+  struct file_info * mmap = malloc(sizeof(struct file_info));   
+  mmap->file = file;
+  mmap->fd = mapid; 
+
+  /* Add the struct to the current thread's list of open files */
+  list_push_back(&thread_current()->mmaps,&mmap->elem);
+
+
+  lock_release(&file_lock);
+
+  return mapid;
+}
+
+void
+process_munmap(int mapid)
+{
+
+  struct thread * t = thread_current();
+  struct list * mmaps = &t->mmaps;
+  struct file_info * fi = get_file_info(mapid,mmaps);
+
+  remove_file_mappings(&t->supp_page_table, fi->file);
+
+  list_remove(&fi->elem);
+  free(fi);
+
+  return;
+
 }
 
 

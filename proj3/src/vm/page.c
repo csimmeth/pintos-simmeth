@@ -6,6 +6,7 @@
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
 #include "filesys/file.h"
+#include "userprog/pagedir.h"
 
 struct list supp_page_table;
 
@@ -56,6 +57,7 @@ void page_remove(struct list * supp_page_table,
     if(pi->user_vaddr == user_vaddr)
     {
       list_remove(e);
+	  pagedir_clear_page(thread_current()->pagedir,user_vaddr);
       free(pi);
       break;
     }
@@ -95,4 +97,30 @@ bool is_page(struct list * supp_page_table,
   return get_pi(supp_page_table,user_vaddr);
 }
 
+bool is_read_only(struct list * supp_page_table,
+				  uint8_t * user_vaddr)
+{
+  struct page_info * pi = get_pi(supp_page_table,user_vaddr);
+  return !pi->writable;
+}
 
+void remove_file_mappings(struct list * supp_page_table, 
+	                      struct file * file)
+{
+
+  struct list_elem *e = list_begin(supp_page_table);
+
+  while (e != list_end(supp_page_table))
+  {
+	struct list_elem * f = list_next(e); 
+    struct page_info * pi = list_entry(e, struct page_info,elem);
+    if(pi->file == file)
+    {
+      list_remove(e);
+	  pagedir_clear_page(thread_current()->pagedir,pi->user_vaddr);
+      free(pi);
+    }
+	e = f;
+  }
+
+}

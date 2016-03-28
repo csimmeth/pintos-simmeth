@@ -24,6 +24,8 @@ static void write(struct intr_frame *f);
 static void seek(struct intr_frame *f);
 static void tell(struct intr_frame *f);
 static void close(struct intr_frame *f);
+static void mmap(struct intr_frame *f);
+static void munmap(struct intr_frame *f);
 
 
 
@@ -38,13 +40,21 @@ verify_addr(void * a)
 {
   /* Check that the address is not null, is part of user memory, 
    * and is part of a valid page */
-  if(!a || !is_user_vaddr(a) ||
+  if(!a || !is_user_vaddr(a) )
  // !pagedir_get_page(thread_current()->pagedir,a))
-  !is_page(&thread_current()->supp_page_table,a))
+  //!is_page(&thread_current()->supp_page_table,a))
 	{
 //	  printf("Invalid Address: %p\n",a);
 	  thread_exit();
 	}
+}
+
+static void 
+check_page(void *a)
+{
+  if(!is_page(&thread_current()->supp_page_table,a))
+	thread_exit();
+  //if(!pagedir_get_page(thread_current()->pagedir,a))
 }
 
 static void * 
@@ -52,6 +62,7 @@ get_arg(struct intr_frame *f, int arg){
 
   void * temp = f->esp + (arg * sizeof(int));
   verify_addr(temp);
+  check_page(temp);
   return temp;
 }
 
@@ -63,6 +74,7 @@ get_int(struct intr_frame *f, int arg){
 static char*
 get_char_ptr(struct intr_frame *f, int arg){
   verify_addr(*(char**)get_arg(f,arg));
+  check_page(*(char**)get_arg(f,arg));
   return *(char**)get_arg(f,arg);
 }
 
@@ -134,6 +146,14 @@ syscall_handler (struct intr_frame *f)
 	
 	case SYS_CLOSE:
 	   close(f);
+	   break;
+
+    case SYS_MMAP:
+	   mmap(f);
+	   break;
+
+    case SYS_MUNMAP:
+	   munmap(f);
 	   break;
 
 	default:
@@ -217,6 +237,7 @@ read(struct intr_frame * f)
   int fd = get_int(f,1);
   void * buffer = get_void_ptr(f,2); 
   uint32_t size = get_int(f,3);
+  check_page(buffer);
 
   int read_size = process_read(fd, buffer, size);
 
@@ -231,6 +252,7 @@ write(struct intr_frame * f)
   void * buffer = get_void_ptr(f,2);
   int size = get_int(f,3);
 
+  check_page(buffer);
   int write_size = process_write(fd, buffer, size);
 
   f->eax = write_size;
@@ -259,4 +281,21 @@ close(struct intr_frame * f)
 {
   int fd = get_int(f,1);
   process_close(fd);
+}
+
+static void 
+mmap(struct intr_frame *f)
+{
+  int fd = get_int(f,1);
+  void * addr = get_void_ptr(f,2);
+
+  int mapid = process_mmap(fd,addr);
+  f->eax = mapid;
+}
+
+static void 
+munmap(struct intr_frame *f)
+{
+  int mapid = get_int(f,1);
+  process_munmap(mapid);
 }

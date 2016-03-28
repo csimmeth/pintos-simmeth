@@ -18,7 +18,11 @@ void page_remove(struct list * supp_page_table,
 
 bool is_page(struct list * supp_page_table,
 				 uint8_t * user_vaddr);
+bool is_read_only(struct list * supp_page_table,
+				 uint8_t * user_vaddr);
 
+void remove_file_mappings(struct list * supp_page_table, 
+	 				      struct file * file);
 struct page_info
 {
   struct list_elem elem;
