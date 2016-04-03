@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 void page_init(void);
-void page_add(struct list * supp_page_table,
+struct page_info * page_add(struct list * supp_page_table,
 				uint8_t* user_vaddr,
 				struct file * file,
 				uint32_t read_bytes,
@@ -27,13 +27,15 @@ struct page_info
 {
   struct list_elem elem;
   
+  // The address
   uint8_t* user_vaddr;
-  // Store time of access
-  //
+
+  // Information about data in this page
   struct file * file;
   uint32_t read_bytes;
   uint32_t ofs;
   bool writable;
+  uint32_t swap_location;
 };
 
 #endif /* vm/page.h */

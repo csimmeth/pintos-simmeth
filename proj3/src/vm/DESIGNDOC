@@ -1,16 +1,14 @@
-       	       	    +---------------------------+
-		    |		CS 140		|
+       	    +---------------------------+
+		    |		CS 140				|
 		    | PROJECT 3: VIRTUAL MEMORY	|
-		    |	   DESIGN DOCUMENT	|
+		    |	   DESIGN DOCUMENT		|
 		    +---------------------------+
 
 ---- GROUP ----
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Caleb Simmeth <simmeth@usc.edu>
 
 ---- PRELIMINARIES ----
 
@@ -30,24 +28,91 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct page_info
+{
+  struct list_elem elem;
+  uint8_t* user_vaddr;
+  struct file * file;
+  uint32_t read_bytes;
+  uint32_t ofs;
+  bool writable;
+}
+This is the entry in the supplemental page table. It records information
+about what is stored in the page.
+
+struct frame_info
+{
+  struct list_elem elem;
+  void * kpage;
+  void * upage;
+  struct thread * owner;
+}
+
+This is an entry in the frame table. It stores the owner as well as
+the associated user virtual page and kernel page;
+
+In frame.c
+struct list frame_table
+This is the list that holds information about the user frames
+that have been allocated.
+
+struct lock frame_lock
+This lock ensures that multiple threads are not adding and
+removing frames at the same time.
+
+In thread.h
+Added to struct thread
+struct list supp_page_table;
+Contains the virtual pages that the thread has allocated and information
+about what data is associated with them.
+		
 ---- ALGORITHMS ----
 
 >> A2: In a few paragraphs, describe your code for locating the frame,
 >> if any, that contains the data of a given page.
 
+First the program consults the page table to determine if there
+is a frame currently associated with virtual page. If there is not,
+then there is a page fault. When this happens, the fault handler
+checks the supplemental page table to see if there is data associated
+with that page. If there is not, the program is stopped.
+
+If an entry in the supplemental page table is found, then the fault
+handler allocates a new frame from the frame table, and loads
+the data into the frame. It then adds an entry to the page table
+for that program and returns.
+
+On return from the page fault, the process tries to look up the
+address in the page table again. This time there is an associated
+frame with the correct data.
+
 >> A3: How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
+
+When checking for dirty bits I check both the user and kernel virtual
+addresses. This ensures that if the file has been updated from either
+address my code can handle it.
 
 ---- SYNCHRONIZATION ----
 
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
 
+The frame table has a lock associated with it. It is essentially a
+synchronized object, and if a process is currently being allocated
+a frame, the next one will have to wait on the frame table lock.
+
 ---- RATIONALE ----
 
 >> A5: Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
+
+I chose a list because it was the simplest to implement. The supplemental
+page table is per-process, so even if iterating through the list is
+O(n) time, there will only be as many pages as that user process 
+has allocated. This also allowed for simple removal from the list.
+
 
 		       PAGING TO AND FROM DISK
 		       =======================
@@ -70,6 +135,10 @@ FirstName LastName <email@domain.example>
 >> B4: Explain your heuristic for deciding whether a page fault for an
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
+
+I check that the address that caused a page fault is within 32 bytes
+of the stack pointer. If it is, I allocate a new page and frame to 
+grow the stack.
 
 ---- SYNCHRONIZATION ----
 
@@ -112,14 +181,33 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+In struct thread:
+struct list mmaps;
+This is a list of memmory mapped files. It has the same structure
+as the file list, and containes file_info elements. These elements
+hold a pointer to the file as well as an id number associated with it.
+
 ---- ALGORITHMS ----
 
 >> C2: Describe how memory mapped files integrate into your virtual
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+When mapping a file, I create a new entry in the supplimental
+page table for each page of memory that will be mapped. I also
+record the file that will be mapped, and the location within
+the file to map. When the program page_faults on that virtual 
+address, the fault handler loads the memory from the file
+into a new frame. I know that this is not a swap because the 
+supplimental page table records  if it has been placed
+in the swap.
+
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
+
+Before allocating a new page, I check to see if the virtual addressi
+is already mapped to something in the supplimental page table. 
+If it is, that means that it will overlap something else.
 
 ---- RATIONALE ----
 
@@ -129,6 +217,8 @@ FirstName LastName <email@domain.example>
 >> that much of their implementation can be shared.  Explain why your
 >> implementation either does or does not share much of the code for
 >> the two situations.
+
+
 
 			   SURVEY QUESTIONS
 			   ================

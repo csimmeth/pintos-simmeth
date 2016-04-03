@@ -901,11 +901,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       struct thread *t = thread_current ();
-	  page_add(&t->supp_page_table,upage,file,
+	 struct page_info * pi = page_add(&t->supp_page_table,upage,file,
 		  page_read_bytes,ofs,writable);
 	  
       //uint8_t *kpage = palloc_get_page (PAL_USER);
-      uint8_t *kpage = frame_get_page(PAL_USER);
+      uint8_t *kpage = frame_get_page(PAL_USER,pi);
       if (kpage == NULL)
         return false;
 
@@ -944,11 +944,11 @@ setup_stack (void **esp)
   bool success = false;
 
   struct thread * t = thread_current();
-  page_add(&t->supp_page_table,
+  struct page_info * pi = page_add(&t->supp_page_table,
 	       ((uint8_t *) PHYS_BASE) - PGSIZE,NULL,0,0,true);
 
   //kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  kpage = frame_get_page (PAL_USER | PAL_ZERO);
+  kpage = frame_get_page (PAL_USER | PAL_ZERO,pi);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);

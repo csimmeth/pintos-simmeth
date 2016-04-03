@@ -28,7 +28,7 @@ get_pi(struct list * supp_page_table,
   return NULL;
 }
 
-void page_add(struct list * supp_page_table,
+struct page_info * page_add(struct list * supp_page_table,
 	            uint8_t* user_vaddr,
 				struct file * file,
 				uint32_t read_bytes,
@@ -43,8 +43,11 @@ void page_add(struct list * supp_page_table,
   pi->read_bytes = read_bytes;
   pi->writable = writable;
   pi->ofs = ofs;
+  pi->swap_location = -1;
 
   list_push_back(supp_page_table,&pi->elem);
+
+  return pi;
 }
 
 void page_remove(struct list * supp_page_table,
