@@ -234,6 +234,18 @@ process_exit (void)
 	process_close(fi->fd);
   }
 
+  /* Unmap all memmory mapped files */
+  struct list *mmaps= &cur->mmaps;
+  e = list_begin(mmaps);
+  while(e != list_end(mmaps))
+  {
+    struct file_info * fi = list_entry(e, struct file_info,elem);
+	e = list_next(e);
+
+	process_munmap(fi->fd);
+
+  }
+
   /* Modify p_info to show that this child has quit
    * if the parent has not already quit */
   if(cur->p_info != NULL){

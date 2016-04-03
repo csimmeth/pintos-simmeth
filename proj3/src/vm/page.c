@@ -7,6 +7,7 @@
 #include "threads/vaddr.h"
 #include "filesys/file.h"
 #include "userprog/pagedir.h"
+#include "userprog/process.h"
 
 struct list supp_page_table;
 
@@ -118,7 +119,14 @@ void remove_file_mappings(struct list * supp_page_table,
     {
 	  //Check if dirty
 	  //write to file
-	  //
+	  acquire_file_lock();
+	  if(pagedir_is_dirty(thread_current()->pagedir,pi->user_vaddr))
+	  {
+		file_write(file,pi->user_vaddr,pi->read_bytes);
+	  }
+
+	  release_file_lock(); 
+
       list_remove(e);
 	  pagedir_clear_page(thread_current()->pagedir,pi->user_vaddr);
       free(pi);
