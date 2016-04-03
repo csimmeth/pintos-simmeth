@@ -499,12 +499,17 @@ process_close(int fd)
 int
 process_mmap(int fd, void * addr)
 {
+  /* Error Checking */
+  if(fd == 1 || fd == 0)
+	return -1;
+
+  if(pg_ofs(addr) != 0 || addr == 0)
+	return -1;
+
   struct file * file = get_file(fd); 
   if(file == NULL)
 	return -1;
 
-  if(pg_ofs(addr) != 0)
-	return -1;
   
   lock_acquire(&file_lock);
 
@@ -536,9 +541,19 @@ process_mmap(int fd, void * addr)
 
   if(extra != 0)
   {
+	/* Check if this will overlap something */
+	if(is_page(supp_table,addr))
+	{
+	  /* If it does, remove previous page info and return */
+      remove_file_mappings(supp_table,file);
+	  lock_release(&file_lock);
+	  return -1;
+	}
+    /* Otherwise add the page */
 	page_add(&thread_current()->supp_page_table, (uint8_t*) addr,
 		file, extra, ofs, true);
   }
+  
 
 
 	/* Get a new fd from the current thread*/

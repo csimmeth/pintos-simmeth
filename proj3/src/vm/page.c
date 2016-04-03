@@ -116,6 +116,9 @@ void remove_file_mappings(struct list * supp_page_table,
     struct page_info * pi = list_entry(e, struct page_info,elem);
     if(pi->file == file)
     {
+	  //Check if dirty
+	  //write to file
+	  //
       list_remove(e);
 	  pagedir_clear_page(thread_current()->pagedir,pi->user_vaddr);
       free(pi);

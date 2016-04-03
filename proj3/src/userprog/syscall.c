@@ -287,7 +287,8 @@ static void
 mmap(struct intr_frame *f)
 {
   int fd = get_int(f,1);
-  void * addr = get_void_ptr(f,2);
+  void * addr = *(void**)get_arg(f,2);
+	// get_void_ptr(f,2);
 
   int mapid = process_mmap(fd,addr);
   f->eax = mapid;
