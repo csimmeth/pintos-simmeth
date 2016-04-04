@@ -1099,8 +1099,8 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   bool success = (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
-  if(success)
-	frame_install_page(kpage,upage,t);
+ // if(success)
+//	frame_install_page(kpage,upage,t);
 
   return(success);
 }

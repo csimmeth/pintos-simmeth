@@ -8,9 +8,12 @@
 #include <threads/palloc.h>
 #include <threads/synch.h>
 #include <devices/timer.h>
+#include "userprog/pagedir.h"
+#include "vm/swap.h"
 
 struct list frame_table;
 struct lock frame_lock;
+struct lock fault_lock;
 
 /* Initialize the frame table */
 void
@@ -18,6 +21,17 @@ frame_init(void)
 {
   list_init(&frame_table);
   lock_init(&frame_lock);
+  lock_init(&fault_lock);
+}
+
+void frame_get_lock(void)
+{
+  lock_acquire(&fault_lock);
+}
+
+void frame_release_lock(void)
+{
+  lock_release(&fault_lock);
 }
 
 static void 
@@ -40,14 +54,20 @@ evict_page(void){
 
   }
 
-  //int swap_location = swap_write(frame)
+  int swap_location = swap_write(frame_to_evict);
+  //set the swap location in frame_to_evict->pi
   
   
-  
-  
+  /* Remove the frame from the pagedir of the owner of 
+   * the evicted frame */
+  pagedir_clear_page(frame_to_evict->owner->pagedir,
+	                 frame_to_evict->pi->user_vaddr);  
 
-  
  lock_release(&frame_lock); 
+
+ // Free this frame 
+   
+ frame_free_page(frame_to_evict);
 
 }
 
@@ -65,7 +85,10 @@ frame_get_page(enum palloc_flags flags, struct page_info * pi)
 	//Evict this, in that supp page table, mark that this has been
 	//moved to swap, remove from that thread's page table
 	//call frame_free_page on that kpage
+	
+	lock_release(&frame_lock);
 	evict_page();
+    lock_acquire(&frame_lock);
 
 	kpage = palloc_get_page(flags);
   }
@@ -83,6 +106,7 @@ frame_get_page(enum palloc_flags flags, struct page_info * pi)
   return kpage;
 }
 
+/*
 void
 frame_install_page(void * kpage, void * upage, struct thread * owner)
 {
@@ -101,6 +125,7 @@ frame_install_page(void * kpage, void * upage, struct thread * owner)
 
   lock_release(&frame_lock);
 }
+*/
 
 void frame_free_page(void * kpage)
 {

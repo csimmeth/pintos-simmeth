@@ -119,6 +119,8 @@ static bool
 load_page (struct page_info * pi, struct thread * t)
 {
 
+  frame_get_lock();
+
   size_t page_read_bytes = pi->read_bytes;
   size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
@@ -132,6 +134,7 @@ load_page (struct page_info * pi, struct thread * t)
   if (kpage == NULL)
   {
 	printf ("Cound not acquire frame\n");
+	frame_release_lock();
 	return false;
   }
 
@@ -155,6 +158,7 @@ load_page (struct page_info * pi, struct thread * t)
       printf("bytes to read: %d\n",page_read_bytes);
 	  printf("Bytes_loaded: %d\n",bytes_loaded);
   	  frame_free_page(kpage);
+	  frame_release_lock();
 	  return false;
 	}
   }
@@ -175,13 +179,15 @@ load_page (struct page_info * pi, struct thread * t)
   {
     frame_free_page(kpage);
 	  printf ("Failed adding page to page table\n");
+	  frame_release_lock();
     return false; 
   }
 
   /* Record the vaddr associated with the kernel page in the 
    * frame table */
-  frame_install_page(kpage,pi->user_vaddr,t);
+  //frame_install_page(kpage,pi->user_vaddr,t);
 
+	  frame_release_lock();
   return true;
 }
 

@@ -11,7 +11,7 @@ struct page_info * page_add(struct list * supp_page_table,
 				uint8_t* user_vaddr,
 				struct file * file,
 				uint32_t read_bytes,
-				uint32_t ofsi,
+				uint32_t ofs,
 				bool writable);
 void page_remove(struct list * supp_page_table,
 				 uint8_t * user_vaddr);

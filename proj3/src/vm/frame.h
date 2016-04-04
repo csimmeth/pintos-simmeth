@@ -8,11 +8,15 @@
 
 void frame_init(void);
 void * frame_get_page(enum palloc_flags flags,struct page_info * pi);
-void frame_install_page(void * kpage, 
+/*void frame_install_page(void * kpage, 
 	                    void * upage, 
 						struct thread * owner);
+*/
 
 void frame_free_page(void * kpage);
+void frame_get_lock(void);
+void frame_release_lock(void);
+
 
 struct frame_info
 {

@@ -122,8 +122,11 @@ void remove_file_mappings(struct list * supp_page_table,
     {
 	  //Check if dirty
 	  //write to file
+	  uint32_t * pd = thread_current()->pagedir;
 	  acquire_file_lock();
-	  if(pagedir_is_dirty(thread_current()->pagedir,pi->user_vaddr))
+	  if(pagedir_is_dirty(pd,pi->user_vaddr)) /*||
+	   	pagedir_is_dirty(pd, pagedir_get_page(pd,
+			                          pi->user_vaddr)))*/
 	  {
 		file_write(file,pi->user_vaddr,pi->read_bytes);
 	  }
