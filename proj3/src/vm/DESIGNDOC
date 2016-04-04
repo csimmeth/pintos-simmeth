@@ -6,18 +6,9 @@
 
 ---- GROUP ----
 
->> Fill in the names and email addresses of your group members.
-
 Caleb Simmeth <simmeth@usc.edu>
 
 ---- PRELIMINARIES ----
-
->> If you have any preliminary comments on your submission, notes for the
->> TAs, or extra credit, please give them here.
-
->> Please cite any offline or online sources you consulted while
->> preparing your submission, other than the Pintos documentation, course
->> text, lecture notes, and course staff.
 
 			PAGE TABLE MANAGEMENT
 			=====================
@@ -269,6 +260,5 @@ If it is, that means that it will overlap something else.
 
 The code in the page_fault section is shared. This determines where
 the data that should be in the frame needs to be read from. After
-that it is not shared because reading from a file is just a single
-line so it doesn't really need it's own function. Reading from the 
-block is similarly easy.
+that it is not shared because the function calls for reading
+from a file and reading from a block are distinct.
