@@ -13,6 +13,7 @@
 
 struct lock io_lock;
 struct lock stack_lock;
+struct lock main_lock;
 
 struct list lru_stack;
 
@@ -67,6 +68,7 @@ cache_init()
   list_init(&lru_stack);
   lock_init(&stack_lock);
   lock_init(&io_lock);
+  lock_init(&main_lock);
   for(int i = 0; i < CACHE_SIZE; i++)
   {
     lock_init(&cache[i].entry_lock);
@@ -77,7 +79,7 @@ cache_init()
 	list_push_back(&lru_stack,&cache[i].elem);
   }
   running = true;
-  thread_create("AutoSaveCache",PRI_MIN,&auto_save,NULL);
+  //thread_create("AutoSaveCache",PRI_DEFAULT,&auto_save,NULL);
 }	
 
 static struct cache_entry *
@@ -184,6 +186,8 @@ void
 cache_read(block_sector_t sector_id, void* buffer, 
 	            int ofs, size_t size)
 {
+
+  //lock_acquire(&main_lock);
   struct cache_entry * e = locate_data(sector_id, false);
   memcpy (buffer, e->data + ofs, size);
   lock_acquire(&e->entry_lock);
@@ -195,11 +199,13 @@ cache_read(block_sector_t sector_id, void* buffer,
   list_remove(&e->elem);
   list_push_back(&lru_stack,&e->elem);
   lock_release(&stack_lock);
+  //lock_release(&main_lock);
 }
 
 void cache_write(block_sector_t sector_id, const void * buffer,
 				 int ofs, size_t size)
 {
+  //lock_acquire(&main_lock);
   struct cache_entry * e = locate_data(sector_id, false);
   lock_acquire(&e->entry_lock);
   memcpy(e->data + ofs, buffer, size);
@@ -211,10 +217,12 @@ void cache_write(block_sector_t sector_id, const void * buffer,
   list_remove(&e->elem);
   list_push_back(&lru_stack,&e->elem);
   lock_release(&stack_lock);
+  //lock_release(&main_lock);
 }
 
 void cache_create(block_sector_t sector_id, void * buffer)
 {
+  //lock_acquire(&main_lock);
   struct cache_entry * e = locate_data(sector_id, true);
   lock_acquire(&e->entry_lock);
   memcpy(e->data, buffer, BLOCK_SECTOR_SIZE);
@@ -227,6 +235,7 @@ void cache_create(block_sector_t sector_id, void * buffer)
   list_remove(&e->elem);
   list_push_back(&lru_stack,&e->elem);
   lock_release(&stack_lock);
+  //lock_release(&main_lock);
 }
 
 
