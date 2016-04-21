@@ -1,11 +1,13 @@
 #include "filesys/cache.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 #include "filesys/filesys.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "lib/kernel/list.h"
+#include "devices/timer.h"
 
 #define CACHE_SIZE 64
 
@@ -13,6 +15,8 @@ struct lock io_lock;
 struct lock stack_lock;
 
 struct list lru_stack;
+
+bool running;
 
 struct cache_entry
 {
@@ -26,6 +30,36 @@ struct cache_entry
 };
 
 struct cache_entry cache[CACHE_SIZE];
+
+static void
+cache_flush(void)
+{
+  for(int i = 0; i < CACHE_SIZE; i++)
+  {
+    struct cache_entry * e = &cache[i];
+	lock_acquire(&io_lock);
+	lock_acquire(&e->entry_lock);
+	if(e->dirty)
+	{
+	 block_write(fs_device,e->sector_id,
+			e->data);
+    }
+
+	lock_release(&e->entry_lock);
+	lock_release(&io_lock);
+  }
+} 
+
+static void 
+auto_save(void *aux UNUSED)
+{
+  while(running)
+  {
+    cache_flush();
+    timer_msleep(100);
+  }
+
+}
 
 void
 cache_init()
@@ -42,6 +76,8 @@ cache_init()
 	cache[i].rw_count = 0;
 	list_push_back(&lru_stack,&cache[i].elem);
   }
+  running = true;
+  thread_create("AutoSaveCache",PRI_MIN,&auto_save,NULL);
 }	
 
 static struct cache_entry *
@@ -100,7 +136,6 @@ locate_data(block_sector_t sector_id, bool new){
 
   //Acquire I/O lock
   lock_acquire(&io_lock);
-
 
   struct cache_entry * e = NULL;
 
@@ -166,8 +201,8 @@ void cache_write(block_sector_t sector_id, const void * buffer,
 				 int ofs, size_t size)
 {
   struct cache_entry * e = locate_data(sector_id, false);
-  memcpy(e->data + ofs, buffer, size);
   lock_acquire(&e->entry_lock);
+  memcpy(e->data + ofs, buffer, size);
   e->rw_count--;
   e->dirty = true;
   lock_release(&e->entry_lock);
@@ -181,8 +216,8 @@ void cache_write(block_sector_t sector_id, const void * buffer,
 void cache_create(block_sector_t sector_id, void * buffer)
 {
   struct cache_entry * e = locate_data(sector_id, true);
-  memcpy(e->data, buffer, BLOCK_SECTOR_SIZE);
   lock_acquire(&e->entry_lock);
+  memcpy(e->data, buffer, BLOCK_SECTOR_SIZE);
   e->rw_count--;
   e->dirty = true;
   lock_release(&e->entry_lock);
@@ -194,18 +229,11 @@ void cache_create(block_sector_t sector_id, void * buffer)
   lock_release(&stack_lock);
 }
 
+
 void
-cache_flush(void)
+cache_close(void)
 {
-  for(int i = 0; i < CACHE_SIZE; i++)
-  {
-    struct cache_entry * e = &cache[i];
-	lock_acquire(&e->entry_lock);
-	if(e->dirty)
-	{
-	  block_write(fs_device,e->sector_id,
-				e->data);
-    }
-	lock_release(&e->entry_lock);
-  }
-} 
+  running = false; 
+  cache_flush();
+}
+
