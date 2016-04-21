@@ -189,8 +189,8 @@ cache_read(block_sector_t sector_id, void* buffer,
 
   //lock_acquire(&main_lock);
   struct cache_entry * e = locate_data(sector_id, false);
-  memcpy (buffer, e->data + ofs, size);
   lock_acquire(&e->entry_lock);
+  memcpy (buffer, e->data + ofs, size);
   e->rw_count--;
   lock_release(&e->entry_lock);
 
