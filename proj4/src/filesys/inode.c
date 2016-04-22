@@ -3,28 +3,22 @@
 #include <debug.h>
 #include <round.h>
 #include <string.h>
-#include <stdio.h>
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "filesys/cache.h"
 #include "threads/malloc.h"
-#include "threads/thread.h"
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
-#define INODE_OFS 8
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
   {
+    block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
-	uint32_t sec_alloc;
-	//block_sector_t sectors[14];
-	block_sector_t sectors[125];
-	
     unsigned magic;                     /* Magic number. */
-    //uint32_t unused[112];               /* Not used. */
+    uint32_t unused[125];               /* Not used. */
   };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -47,7 +41,6 @@ struct inode
 	/* Inode Content */
 	block_sector_t data_start;
 	off_t data_length;
-	uint32_t data_sectors;
 	
   };
 
@@ -63,125 +56,6 @@ byte_to_sector (const struct inode *inode, off_t pos)
     return inode->data_start + pos / BLOCK_SECTOR_SIZE;
   else
     return -1;
-}
-
-static void
-allocate_block(block_sector_t * psector, block_sector_t block, int ofs)
-{
-	// Get a new sector
-	
-    free_map_allocate (1, psector);
-
-	// Zero out the new sector
-    static char zeros[BLOCK_SECTOR_SIZE];
-	cache_create(*psector,zeros);
-
-	// Record the value of the new sector
-    cache_write(block,psector,ofs,4);
-}
-
-static block_sector_t
-byte_to_psector(struct inode *inode, off_t pos,int size)
-{
-  
-  
-  bool grow = false;
-  
-  /*
-  if(bytes_to_sectors(pos) > inode->data_sectors)
-  {
-	uint32_t new_sectors = bytes_to_sectors(pos);
-    grow = true;
-	//printf("data_sectors: %d, old: %d \n",new_sectors,inode->data_sectors);
-	inode->data_sectors = new_sectors; 
-	cache_write(inode->sector,&inode->data_sectors,4,4);
-  }
-  */
- 
-  block_sector_t psector;
-  block_sector_t vsector = pos / BLOCK_SECTOR_SIZE;
-
-  if(vsector < 126)
-  {
-	// Calculate the offset
-	int ofs = vsector * 4 + INODE_OFS;
-
-	// Read sector or allocate directly from inode_disk
-	if(grow)
-	{
-	  allocate_block(&psector,inode->sector,ofs);
-	}
-	else
-	{
-      cache_read(inode->sector,&psector,ofs,4);
-	}
-
-//	printf("got psector %d from vsector %d\n",psector,vsector);
-
-	return psector;
-  }
-  else if(vsector < 140)
-  {
-	printf("here\n");
-	int ofs = 48 + INODE_OFS;
-
-	// Get the intermediate block
-    block_sector_t iblock; 
-	cache_read(inode->sector,&iblock,ofs,4);
-	if(iblock == 0)
-	{
-	  allocate_block(&iblock,inode->sector,ofs);
-	}
-
-	vsector = vsector - 12;
-	ofs = 4 * vsector;
-
-	if(grow)
-	{
-	  allocate_block(&psector,iblock,ofs);
-	}
-	else
-	{
-	  // Read the sector from the iblock
-	  cache_read(iblock,&psector,ofs,4);
-	}
-
-	//allocate_block(&psector,iblock,ofs);
-	return psector;
-  }
-  else if(vsector < 16524)
-  {
-	// Get the first iblock
-	int ofs = 52 + INODE_OFS;
-	block_sector_t double_iblock;
-	cache_read(inode->sector,&double_iblock,ofs,4);
-	//printf("double at block %d\n",double_iblock);
-
-//    allocate_block(&double_iblock,inode->sector,ofs);
-
-	// Calculate where to look in the double block
-	vsector = vsector - 140;
-	block_sector_t iblock;
-    int block_ofs = (vsector / 128) * 4;
-
-	// Get the second iblock
-	cache_read(double_iblock,&iblock,block_ofs,4);
-	//printf("iblock at %d\n",iblock);
-
-	//allocate_block(&iblock,double_iblock,block_ofs);
-
-	// Check where to look in the second block
-	int sector_ofs = (vsector % 128 ) * 4;
-	cache_read(iblock,&psector,sector_ofs,4);
-
-	//printf("sector at %d\n",psector);
-
-	//allocate_block(&psector,iblock,sector_ofs);
-    return psector;
-  }
-  else 
-	printf("file too big!");
-	PANIC(__FILE__);
 }
 
 /* List of open inodes, so that opening a single inode twice
@@ -215,105 +89,26 @@ inode_create (block_sector_t sector, off_t length)
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
-
       size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = length; //12 * BLOCK_SECTOR_SIZE;
-	  disk_inode->sec_alloc = 0;// sectors;
+      disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
-
-      //cache_create(sector,disk_inode);
-	  //success = true;
-	  
-	  
+      if (free_map_allocate (sectors, &disk_inode->start)) 
+        {
           //block_write (fs_device, sector, disk_inode);
-		  
-	  // Set up the free map in advance
-	  /*
-	  if(sector == 0)
-	  {
-        static char zeros[BLOCK_SECTOR_SIZE];
-		free_map_allocate(1,&disk_inode->sectors[0]);
-		cache_create(disk_inode->sectors[0],zeros);
-		disk_inode->sec_alloc = sectors;
-	  }
-	  */
+		  cache_create(sector,disk_inode);
           if (sectors > 0) 
             {
               static char zeros[BLOCK_SECTOR_SIZE];
               size_t i;
               
-				//free_map_allocate(sectors,&disk_inode->sectors[i]);
-				//printf("allocating %i sectors\n",sectors);
               for (i = 0; i < sectors; i++) 
 			  {
-				if(i < 126)
-				{
-				//disk_inode->sectors[i] = disk_inode->sectors[0] + i;
                 //block_write (fs_device, disk_inode->start + i, zeros);
-
-				  free_map_allocate(1,&disk_inode->sectors[i]);
-				//disk_inode->sectors[i] = disk_inode->sectors[0] + i;
-				cache_create(disk_inode->sectors[i], zeros);
-				}
-				else if(i < 140)
-				{
-
-				  // Create the indirect node
-				  if(i == 12)
-				  {
-					free_map_allocate(1,&disk_inode->sectors[i]);
-				    cache_create(disk_inode->sectors[i], zeros);
-				  }
-
-				  block_sector_t iblock = disk_inode->sectors[12];
-
-				  // Read the sector from the iblock
-				  block_sector_t vsector = i;
-				  vsector = vsector - 12;
-				  int ofs = 4 * vsector;
-				  block_sector_t new_block;
-				  //Allocate a new block
-				  free_map_allocate(1,&new_block);
-				  cache_create(new_block,zeros);
-
-				  //Write this to the indirect node
-				  cache_write(iblock,&new_block,ofs,4);
-
-				}
-
-                else if(i < 16524)
-				{
-                  if(i == 140)
-				  {
-					free_map_allocate(1,&disk_inode->sectors[13]);
-					cache_create(disk_inode->sectors[13],zeros);
-				  }	
-                  block_sector_t double_iblock = disk_inode->sectors[13];
-
-				  block_sector_t vsector = i;
-				  vsector = vsector -140;
-				  int block_ofs = (vsector / 128) * 4;
-				  int sector_ofs = (vsector % 128) * 4;
-				  block_sector_t iblock;
-				  if(sector_ofs == 0)
-				  {
-				    free_map_allocate(1,&iblock);
-					cache_create(iblock,zeros);
-					cache_write(double_iblock,&iblock,block_ofs,4);	
-				  }
-
-				  block_sector_t new_block;
-				  free_map_allocate(1,&new_block);
-				  cache_create(new_block,zeros);
-				  cache_write(iblock,&new_block,sector_ofs,4);
-				}
+				cache_create(disk_inode->start + i, zeros);
 			  }
-			  disk_inode->sec_alloc =sectors;
             }
-			
-	  cache_create(sector,disk_inode);
-      success = true; 
-		
+          success = true; 
+        } 
       free (disk_inode);
     }
   return success;
@@ -351,9 +146,8 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  cache_read (inode->sector,&inode->data_start,8,4);
-  cache_read (inode->sector,&inode->data_length,0,4);
-  cache_read (inode->sector, &inode->data_sectors,4,4);
+  cache_read (inode->sector,&inode->data_start,0,4);
+  cache_read (inode->sector,&inode->data_length,4,4);
   return inode;
 }
 
@@ -422,9 +216,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */
-//      block_sector_t sector_idx_old = byte_to_sector (inode, offset);
-      block_sector_t sector_idx = byte_to_psector (inode, offset,size);
-
+      block_sector_t sector_idx = byte_to_sector (inode, offset);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -437,7 +229,6 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       if (chunk_size <= 0)
         break;
 
-	  //printf("reading from sector %d\n",sector_idx);
 	  cache_read(sector_idx,buffer+bytes_read, sector_ofs, chunk_size);
 
       /* Advance. */
@@ -467,11 +258,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
-      //block_sector_t sector_idx_old = byte_to_sector (inode, offset);
-      block_sector_t sector_idx = byte_to_psector (inode, offset,size);
-
-	  //if(sector_idx != sector_idx_old)
-	   // printf("Writing %d, should be %d\n",sector_idx,sector_idx_old);
+      block_sector_t sector_idx = byte_to_sector (inode, offset);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -484,7 +271,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (chunk_size <= 0)
         break;
 
-	  //printf("writing to sector %d\n",sector_idx);
       cache_write(sector_idx, buffer + bytes_written,
 			 		  sector_ofs,chunk_size);
 
