@@ -69,6 +69,15 @@ byte_to_psector (const struct inode *inode, off_t pos)
 
   int ofs = INODE_OFS + 4 * vsector;
   cache_read(inode->sector,&psector,ofs,4);
+
+  if(psector ==0)
+  {
+    static char zeros[BLOCK_SECTOR_SIZE];
+    free_map_allocate(1,&psector);
+	//printf("Allocated psector %d for vsector %d of sector %d\n",psector,vsector,inode->sector);
+	cache_create(psector, zeros);
+	cache_write(inode->sector,&psector,ofs,4);
+  }
   //printf("returning psector %d at vsector %d from sector %d\n",psector,vsector,inode->sector);
   return psector;
 }
@@ -110,6 +119,12 @@ inode_create (block_sector_t sector, off_t length)
       //if (free_map_allocate (sectors, &disk_inode->sectors[0]) )
        // {
           //block_write (fs_device, sector, disk_inode);
+		  if(sector ==0 )
+		  {
+              static char zeros[BLOCK_SECTOR_SIZE];
+			free_map_allocate(1,&disk_inode->sectors[0]);
+			cache_create(disk_inode->sectors[0],zeros);
+		  }
           if (sectors > 0) 
             {
               static char zeros[BLOCK_SECTOR_SIZE];
@@ -117,10 +132,9 @@ inode_create (block_sector_t sector, off_t length)
               
               for (i = 0; i < sectors; i++) 
 			  {
-                //block_write (fs_device, disk_inode->start + i, zeros);
-				free_map_allocate(1,&disk_inode->sectors[i]);
+				//free_map_allocate(1,&disk_inode->sectors[i]);
+				//cache_create(disk_inode->sectors[i], zeros);
 				//printf("allocating sector %d at vposition %d from sector %d\n",disk_inode->sectors[i],i,sector);
-				cache_create(disk_inode->sectors[i], zeros);
 			  }
             }
 		  cache_create(sector,disk_inode);
