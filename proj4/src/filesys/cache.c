@@ -31,6 +31,7 @@ struct cache_entry
 };
 
 struct cache_entry cache[CACHE_SIZE];
+uint8_t* free_map;
 
 static void
 cache_flush(void)
@@ -69,6 +70,8 @@ cache_init()
   lock_init(&stack_lock);
   lock_init(&io_lock);
   lock_init(&main_lock);
+  free_map = malloc(BLOCK_SECTOR_SIZE);
+  block_read(fs_device,FREE_MAP_SECTOR,free_map);
   for(int i = 0; i < CACHE_SIZE; i++)
   {
     lock_init(&cache[i].entry_lock);
@@ -182,6 +185,13 @@ locate_data(block_sector_t sector_id, bool new){
   return e;
 }
 
+void cache_read_map(void *buffer,int ofs,size_t size)
+{
+  lock_acquire(&main_lock);
+  memcpy(buffer,free_map + ofs,size);
+  lock_release(&main_lock);
+}
+
 void
 cache_read(block_sector_t sector_id, void* buffer, 
 	            int ofs, size_t size)
@@ -199,6 +209,14 @@ cache_read(block_sector_t sector_id, void* buffer,
   list_remove(&e->elem);
   list_push_back(&lru_stack,&e->elem);
   lock_release(&stack_lock);
+  lock_release(&main_lock);
+}
+
+void 
+cache_write_map(const void * buffer,int ofs,size_t size)
+{
+  lock_acquire(&main_lock);
+  memcpy(free_map + ofs,buffer,size);
   lock_release(&main_lock);
 }
 
@@ -244,5 +262,6 @@ cache_close(void)
 {
   running = false; 
   cache_flush();
+  block_write(fs_device,FREE_MAP_SECTOR,free_map);
 }
 
