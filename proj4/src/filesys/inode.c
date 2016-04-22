@@ -10,15 +10,15 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+#define INODE_OFS 4
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
   {
-    block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
+    block_sector_t sectors[126];               /* First data sector. */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
   };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -58,6 +58,17 @@ byte_to_sector (const struct inode *inode, off_t pos)
     return -1;
 }
 
+static block_sector_t
+byte_to_psector (const struct inode *inode, off_t pos)
+{
+  block_sector_t psector;
+  block_sector_t vsector = pos / BLOCK_SECTOR_SIZE;
+
+  int ofs = INODE_OFS + 4 * vsector;
+  cache_read(inode->sector,&psector,ofs,4);
+  return psector;
+}
+
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
 static struct list open_inodes;
@@ -92,7 +103,7 @@ inode_create (block_sector_t sector, off_t length)
       size_t sectors = bytes_to_sectors (length);
       disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
-      if (free_map_allocate (sectors, &disk_inode->start)) 
+      if (free_map_allocate (sectors, &disk_inode->sectors[0]) )
         {
           //block_write (fs_device, sector, disk_inode);
 		  cache_create(sector,disk_inode);
@@ -104,7 +115,7 @@ inode_create (block_sector_t sector, off_t length)
               for (i = 0; i < sectors; i++) 
 			  {
                 //block_write (fs_device, disk_inode->start + i, zeros);
-				cache_create(disk_inode->start + i, zeros);
+				cache_create(disk_inode->sectors[0] + i, zeros);
 			  }
             }
           success = true; 
@@ -146,8 +157,8 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  cache_read (inode->sector,&inode->data_start,0,4);
-  cache_read (inode->sector,&inode->data_length,4,4);
+  cache_read (inode->sector,&inode->data_start,4,4);
+  cache_read (inode->sector,&inode->data_length,0,4);
   return inode;
 }
 
