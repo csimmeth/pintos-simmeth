@@ -3,6 +3,7 @@
 #include <debug.h>
 #include <round.h>
 #include <string.h>
+#include <stdio.h>
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "filesys/cache.h"
@@ -61,11 +62,14 @@ byte_to_sector (const struct inode *inode, off_t pos)
 static block_sector_t
 byte_to_psector (const struct inode *inode, off_t pos)
 {
+  if(inode->sector ==0)
+	return 2;
   block_sector_t psector;
   block_sector_t vsector = pos / BLOCK_SECTOR_SIZE;
 
   int ofs = INODE_OFS + 4 * vsector;
   cache_read(inode->sector,&psector,ofs,4);
+  //printf("returning psector %d at vsector %d from sector %d\n",psector,vsector,inode->sector);
   return psector;
 }
 
@@ -103,10 +107,9 @@ inode_create (block_sector_t sector, off_t length)
       size_t sectors = bytes_to_sectors (length);
       disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
-      if (free_map_allocate (sectors, &disk_inode->sectors[0]) )
-        {
+      //if (free_map_allocate (sectors, &disk_inode->sectors[0]) )
+       // {
           //block_write (fs_device, sector, disk_inode);
-		  cache_create(sector,disk_inode);
           if (sectors > 0) 
             {
               static char zeros[BLOCK_SECTOR_SIZE];
@@ -115,11 +118,14 @@ inode_create (block_sector_t sector, off_t length)
               for (i = 0; i < sectors; i++) 
 			  {
                 //block_write (fs_device, disk_inode->start + i, zeros);
-				cache_create(disk_inode->sectors[0] + i, zeros);
+				free_map_allocate(1,&disk_inode->sectors[i]);
+				//printf("allocating sector %d at vposition %d from sector %d\n",disk_inode->sectors[i],i,sector);
+				cache_create(disk_inode->sectors[i], zeros);
 			  }
             }
+		  cache_create(sector,disk_inode);
           success = true; 
-        } 
+        //} 
       free (disk_inode);
     }
   return success;
@@ -198,8 +204,8 @@ inode_close (struct inode *inode)
       if (inode->removed) 
         {
           free_map_release (inode->sector, 1);
-          free_map_release (inode->data_start,
-                            bytes_to_sectors (inode->data_length)); 
+       //   free_map_release (inode->data_start,
+      //                      bytes_to_sectors (inode->data_length)); 
         }
 
       free (inode); 
@@ -227,7 +233,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */
-      block_sector_t sector_idx = byte_to_sector (inode, offset);
+      block_sector_t sector_idx = byte_to_psector (inode, offset);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -269,7 +275,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   while (size > 0) 
     {
       /* Sector to write, starting byte offset within sector. */
-      block_sector_t sector_idx = byte_to_sector (inode, offset);
+      block_sector_t sector_idx = byte_to_psector (inode, offset);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
