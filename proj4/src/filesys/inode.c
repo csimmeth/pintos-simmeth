@@ -329,10 +329,10 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 	return size;
   }
 
+  lock_acquire(&inode->ilock);
   if(offset + size > inode_length(inode))
   {
 	
-	lock_acquire(&inode->ilock);
 	int old_sectors = bytes_to_sectors(inode->data_length);
 	int new_sectors = bytes_to_sectors(offset + size);
 	for(int i = old_sectors; i < new_sectors; i++)
@@ -342,8 +342,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
 	inode->data_length = offset + size;
 	cache_write(inode->sector,&inode->data_length,0,4);
-	lock_release(&inode->ilock);
   }
+  lock_release(&inode->ilock);
 
   while (size > 0) 
     {

@@ -200,6 +200,7 @@ cache_read(block_sector_t sector_id, void* buffer,
 
   lock_acquire(&main_lock);
   struct cache_entry * e = locate_data(sector_id, false);
+  //locate_data(sector_id +1,false);
   lock_acquire(&e->entry_lock);
   memcpy (buffer, e->data + ofs, size);
   e->rw_count--;
@@ -226,6 +227,7 @@ void cache_write(block_sector_t sector_id, const void * buffer,
 {
   lock_acquire(&main_lock);
   struct cache_entry * e = locate_data(sector_id, false);
+  //locate_data(sector_id +1,false);
   lock_acquire(&e->entry_lock);
   memcpy(e->data + ofs, buffer, size);
   e->rw_count--;

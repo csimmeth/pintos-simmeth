@@ -63,7 +63,7 @@ This is just over 8 MB.
 >> A3: Explain how your code avoids a race if two processes attempt to
 >> extend a file at the same time.
 
-Each inode has a lock that must be acquired before the inode data can be acquired. In this case, if a second program tried to extend the file, it would have to wait until after the first program.
+Each inode has a lock that must be acquired before the inode data can be acquired. In this case, if a second program tried to extend the file, it would have to wait until after the first program was finished extending the file.
 
 
 >> A4: Suppose processes A and B both have file F open, both
@@ -73,12 +73,23 @@ Each inode has a lock that must be acquired before the inode data can be acquire
 >> nonzero data, A is not allowed to see all zeros.  Explain how your
 >> code avoids this race.
 
+The program will only read from a sector if a physical sector
+that has been allocated for it. So in this case, if the write has
+already allocated sectors, but has not written yet, it will read 
+zeros. If the write has not allocated sectors yet, then the read
+will not read anything.
+
 >> A5: Explain how your synchronization design provides "fairness".
 >> File access is "fair" if readers cannot indefinitely block writers
 >> or vice versa.  That is, many processes reading from a file cannot
 >> prevent forever another process from writing the file, and many
 >> processes writing to a file cannot prevent another process forever
 >> from reading the file.
+
+At every file_write or file_read the process must reaquire the lock.
+Since these reads and writes are at most one block long, no one process
+will have complete control longer than it takes to write a single block.
+When the lock is released, the next process will get a turn.
 
 ---- RATIONALE ----
 
@@ -87,6 +98,13 @@ Each inode has a lock that must be acquired before the inode data can be acquire
 >> indirect blocks?  If not, why did you choose an alternative inode
 >> structure, and what advantages and disadvantages does your
 >> structure have, compared to a multilevel index?
+
+This is a multilevel index with 12 single level blocks, one indirect
+block, and one double indirect block.
+I chose this combination because it is the same as FFS, and it
+worked well for the required file size. Having an indirect block made
+it slightly faster for most tests, which do not use the double
+intirect block.
 
 			    SUBDIRECTORIES
 			    ==============
@@ -97,10 +115,28 @@ Each inode has a lock that must be acquired before the inode data can be acquire
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct thread
+{
+  char current_directory[100]
+}
+
+struct dir
+{ 
+  struct lock dlock;
+  int open_count;
+}
+
+
 ---- ALGORITHMS ----
 
 >> B2: Describe your code for traversing a user-specified path.  How
 >> do traversals of absolute and relative paths differ?
+
+I first determine if this is an absolute or relative path by
+checking if the first character is '/'. If it is not, I compose the 
+current directory and the path that is given. Then, I take this path and
+tokenate it. I go through each directory in the path and make sure
+that it is valid until I get the the last entry.
 
 ---- SYNCHRONIZATION ----
 
@@ -109,15 +145,26 @@ Each inode has a lock that must be acquired before the inode data can be acquire
 >> should succeed, as should only one of two simultaneous attempts to
 >> create a file with the same name, and so on.
 
+Each directory has a lock. Before I make changes to a directory, I acquire
+the lock. This prevents two simultaneous attempts to modify a 
+directory by creating/deleting a file.
+
 >> B5: Does your implementation allow a directory to be removed if it
 >> is open by a process or if it is in use as a process's current
 >> working directory?  If so, what happens to that process's future
 >> file system operations?  If not, how do you prevent it?
 
+It does not. Similar to the inode, I keep a number that specifies
+how many programs have the directory open. If this is greater than 0, 
+I deny the deletion.
+
 ---- RATIONALE ----
 
 >> B6: Explain why you chose to represent the current directory of a
 >> process the way you did.
+
+I chose to represent the current directory as a char array, because I
+just parse it later.
 
 			     BUFFER CACHE
 			     ============
@@ -128,14 +175,35 @@ Each inode has a lock that must be acquired before the inode data can be acquire
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct cache_entry
+{
+  block_sector_t sector_id;
+  uint8_t* data;
+  bool dirty;
+  bool used;
+  struct lock entry_lock;
+  int rw_count;
+  struct list_elem elem;
+}
+
 ---- ALGORITHMS ----
 
 >> C2: Describe how your cache replacement algorithm chooses a cache
 >> block to evict.
 
+I keep a queue of the cache elements in the form of a list. Every time
+an element is accessed it gets put on the back of the list. Then, when
+the element is at the front, it is the one that has been least recently 
+used, so it is evicted.
+
 >> C3: Describe your implementation of write-behind.
 
+I spawn a new thread that runs the auto_save function. This calls timer
+sleep and cache_flush for its entire life.
+
 >> C4: Describe your implementation of read-ahead.
+Any time I do a read or write, I spawn a new thread that gets the next
+sector of the sector that was just accessed. 
 
 ---- SYNCHRONIZATION ----
 
@@ -143,34 +211,17 @@ Each inode has a lock that must be acquired before the inode data can be acquire
 >> buffer cache block, how are other processes prevented from evicting
 >> that block?
 
+Each cache entry has a number that specifies how many threads are 
+currently using it. If this number > 0 then the entry will not be
+evicted.
+
 >> C6: During the eviction of a block from the cache, how are other
 >> processes prevented from attempting to access the block?
+
+As soon as the entry is chosen for eviction it is marked as not valid,
+thus, not other threads will be able to access it.
 
 ---- RATIONALE ----
 
 >> C7: Describe a file workload likely to benefit from buffer caching,
 >> and workloads likely to benefit from read-ahead and write-behind.
-
-			   SURVEY QUESTIONS
-			   ================
-
-Answering these questions is optional, but it will help us improve the
-course in future quarters.  Feel free to tell us anything you
-want--these questions are just to spur your thoughts.  You may also
-choose to respond anonymously in the course evaluations at the end of
-the quarter.
-
->> In your opinion, was this assignment, or any one of the three problems
->> in it, too easy or too hard?  Did it take too long or too little time?
-
->> Did you find that working on a particular part of the assignment gave
->> you greater insight into some aspect of OS design?
-
->> Is there some particular fact or hint we should give students in
->> future quarters to help them solve the problems?  Conversely, did you
->> find any of our guidance to be misleading?
-
->> Do you have any suggestions for the TAs to more effectively assist
->> students in future quarters?
-
->> Any other comments?
