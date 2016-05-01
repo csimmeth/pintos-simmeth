@@ -238,9 +238,15 @@ inode_close (struct inode *inode)
       /* Deallocate blocks if removed. */
       if (inode->removed) 
         {
-          //free_map_release (inode->sector, 1);
-       //   free_map_release (inode->data_start,
-      //                      bytes_to_sectors (inode->data_length)); 
+          free_map_release (inode->sector, 1);
+		  int bytes = 1;
+		  block_sector_t psector;
+		  while(bytes < inode->data_length)
+		  {
+			psector = byte_to_psector(inode,bytes);
+			free_map_release(psector,1);
+			bytes += BLOCK_SECTOR_SIZE;
+		  }	
         }
 
       free (inode); 
