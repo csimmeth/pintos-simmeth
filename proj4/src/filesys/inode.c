@@ -45,6 +45,15 @@ struct inode
 	
   };
 
+static void
+allocate_sector(block_sector_t * psector, block_sector_t parent, int ofs)
+{
+  static char zeros[BLOCK_SECTOR_SIZE];
+  free_map_allocate(1,&psector);
+  cache_create(psector,zeros)
+
+}  
+
 static block_sector_t
 byte_to_psector (const struct inode *inode, off_t pos)
 {
@@ -98,34 +107,18 @@ inode_create (block_sector_t sector, off_t length)
   if (disk_inode != NULL)
     {
       size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = length;
+      disk_inode->length = 0;//length;
       disk_inode->magic = INODE_MAGIC;
-      //if (free_map_allocate (sectors, &disk_inode->sectors[0]) )
-       // {
-          //block_write (fs_device, sector, disk_inode);
-		  if(sector ==0 )
+	  if(sector ==0 )
 		  {
-	/*	
-              static char zeros[BLOCK_SECTOR_SIZE];
-			free_map_allocate(1,&disk_inode->sectors[0]);
+            static char zeros[BLOCK_SECTOR_SIZE];
+			disk_inode->sectors[0] = FREE_MAP_DATA;
 			cache_create(disk_inode->sectors[0],zeros);
-*/
 		  }
-          if (sectors > 0) 
-            {
-              //static char zeros[BLOCK_SECTOR_SIZE];
-              size_t i;
-              
-              for (i = 0; i < sectors; i++) 
-			  {
-				//free_map_allocate(1,&disk_inode->sectors[i]);
-				//cache_create(disk_inode->sectors[i], zeros);
-				//printf("allocating sector %d at vposition %d from sector %d\n",disk_inode->sectors[i],i,sector);
-			  }
-            }
-		  cache_create(sector,disk_inode);
-          success = true; 
-        //} 
+
+	  cache_create(sector,disk_inode);
+      success = true; 
+
       free (disk_inode);
     }
   return success;
@@ -236,7 +229,6 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 	return size;
   }
 
-
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */
@@ -288,6 +280,13 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
   if(offset + size > inode_length(inode))
   {
+	int old_sectors = bytes_to_sectors(inode->data_length);
+	int new_sectors = bytes_to_sectors(offset + size);
+	for(int i = old_sectors; i < new_sectors; i++)
+	{
+	  byte_to_psector(inode,i * BLOCK_SECTOR_SIZE +1);
+	}
+
 	inode->data_length = offset + size;
 	cache_write(inode->sector,&inode->data_length,0,4);
   }

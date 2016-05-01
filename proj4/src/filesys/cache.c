@@ -71,7 +71,8 @@ cache_init()
   lock_init(&io_lock);
   lock_init(&main_lock);
   free_map = malloc(BLOCK_SECTOR_SIZE);
-  block_read(fs_device,FREE_MAP_SECTOR,free_map);
+  block_read(fs_device,FREE_MAP_DATA,free_map);
+
   for(int i = 0; i < CACHE_SIZE; i++)
   {
     lock_init(&cache[i].entry_lock);
@@ -262,6 +263,6 @@ cache_close(void)
 {
   running = false; 
   cache_flush();
-  block_write(fs_device,FREE_MAP_SECTOR,free_map);
+  block_write(fs_device,FREE_MAP_DATA,free_map);
 }
 
