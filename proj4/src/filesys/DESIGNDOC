@@ -8,7 +8,6 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
 Caleb Simmeth <simmeth@usc.edu>
 
 ---- PRELIMINARIES ----
@@ -202,6 +201,7 @@ I spawn a new thread that runs the auto_save function. This calls timer
 sleep and cache_flush for its entire life.
 
 >> C4: Describe your implementation of read-ahead.
+
 Any time I do a read or write, I spawn a new thread that gets the next
 sector of the sector that was just accessed. 
 
@@ -225,3 +225,9 @@ thus, not other threads will be able to access it.
 
 >> C7: Describe a file workload likely to benefit from buffer caching,
 >> and workloads likely to benefit from read-ahead and write-behind.
+
+A workload that will benefit from buffer caching is one which uses the 
+same sectors of memory often. For example, if it is writing/reading often
+from the same parts of a file. Read-ahead will benefit those which
+read through an entire file sequentially. Write-behind will cut down on
+writes for programs which write to the same sector often.
