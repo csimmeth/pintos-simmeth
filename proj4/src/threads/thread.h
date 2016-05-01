@@ -101,6 +101,7 @@ struct thread
 	bool is_process;
 	int exit_status;
 	char process_name[16];
+	char current_directory[100];
    	
 
 #ifdef USERPROG

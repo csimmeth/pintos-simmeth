@@ -476,6 +476,12 @@ process_close(int fd)
   }
 }
 
+bool
+process_mkdir(char * dir)
+{
+  //parse the filename
+  //
+}
 
 
 /* We load ELF binaries.  The following definitions are taken

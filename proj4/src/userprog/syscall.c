@@ -23,8 +23,7 @@ static void write(struct intr_frame *f);
 static void seek(struct intr_frame *f);
 static void tell(struct intr_frame *f);
 static void close(struct intr_frame *f);
-
-
+static void mkdir(struct intr_frame *f);
 
 void
 syscall_init (void) 
@@ -131,9 +130,10 @@ syscall_handler (struct intr_frame *f)
 	   close(f);
 	   break;
 
-	default:
-       printf ("system call unknown!\n");
-       thread_exit ();
+	 case SYS_MKDIR:
+	    mkdir(f);
+		break;
+
   }
 }
 
@@ -253,4 +253,12 @@ close(struct intr_frame * f)
 {
   int fd = get_int(f,1);
   process_close(fd);
+}
+
+static void
+mkdir(struct intr_frame *f)
+{
+  char * dir = get_char_ptr(f,1);
+  bool success = process_mkdir(dir);
+  f->eax = success;
 }
