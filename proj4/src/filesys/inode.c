@@ -114,7 +114,7 @@ byte_to_psector (const struct inode *inode, off_t pos)
 	printf("File too big!");
 	psector = -1;
   }
-  //printf("returning psector %d at vsector %d from sector %d\n",psector,vsector,inode->sector);
+ //printf("returning psector %d at vsector %d from sector %d\n",psector,vsector,inode->sector);
   return psector;
 }
 
@@ -149,7 +149,7 @@ inode_create (block_sector_t sector, off_t length)
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
-      disk_inode->length = 0;
+      disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
 	  if(sector ==0 )
 		  {
