@@ -48,10 +48,11 @@ struct inode
 static void
 allocate_sector(block_sector_t * psector, block_sector_t parent, int ofs)
 {
+  /* Get a new sector and write it in the parent block */
   static char zeros[BLOCK_SECTOR_SIZE];
-  free_map_allocate(1,&psector);
-  cache_create(psector,zeros)
-
+  free_map_allocate(1,psector);
+  cache_create(*psector,zeros);
+  cache_write(parent,psector,ofs,4);
 }  
 
 static block_sector_t
@@ -60,16 +61,58 @@ byte_to_psector (const struct inode *inode, off_t pos)
   block_sector_t psector;
   block_sector_t vsector = pos / BLOCK_SECTOR_SIZE;
 
-  int ofs = INODE_OFS + 4 * vsector;
-  cache_read(inode->sector,&psector,ofs,4);
-
-  if(psector ==0)
+  if(vsector < 12)
   {
-    static char zeros[BLOCK_SECTOR_SIZE];
-    free_map_allocate(1,&psector);
-	//printf("Allocated psector %d for vsector %d of sector %d\n",psector,vsector,inode->sector);
-	cache_create(psector, zeros);
-	cache_write(inode->sector,&psector,ofs,4);
+	/* Read the data sector directly from the inode */
+    int ofs = INODE_OFS + 4 * vsector;
+    cache_read(inode->sector,&psector,ofs,4);
+
+    if(!psector)
+    	allocate_sector(&psector,inode->sector,ofs);
+  }
+  else if (vsector < 140)
+  {
+	/* First get the iblock */
+	block_sector_t isector;
+	int iofs = 48 + INODE_OFS;
+	cache_read(inode->sector,&isector,iofs,4);
+	if(!isector)
+	  allocate_sector(&isector,inode->sector,iofs);
+
+	/* Then get the data sector */
+	vsector -= 12;
+	int ofs = 4 * vsector;
+	cache_read(isector,&psector,ofs,4);
+	if(!psector)
+	  allocate_sector(&psector,isector,ofs);
+  }
+  else if (vsector < 16524)
+  {
+	vsector -= 140;
+	/* First get the double iblock */
+	block_sector_t double_isector;
+	int double_ofs = 52 + INODE_OFS;
+	cache_read(inode->sector,&double_isector,double_ofs,4);
+	if(!double_isector)
+	  allocate_sector(&double_isector,inode->sector,double_ofs);
+
+	/* Then get the iblock */
+	block_sector_t isector;
+	int iofs = (vsector / 128) * 4;
+	cache_read(double_isector,&isector,iofs,4);
+	if(!isector)
+	  allocate_sector(&isector,double_isector,iofs);
+
+	/* Finally, read the data sector */
+    int ofs = (vsector % 128) * 4;
+	cache_read(isector,&psector,ofs,4);
+	if(!psector)
+	  allocate_sector(&psector,isector,ofs);
+  }
+  else
+  {
+	printf("File too big!");
+	psector = -1;
   }
   //printf("returning psector %d at vsector %d from sector %d\n",psector,vsector,inode->sector);
   return psector;
@@ -106,8 +149,7 @@ inode_create (block_sector_t sector, off_t length)
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
-      size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = 0;//length;
+      disk_inode->length = 0;
       disk_inode->magic = INODE_MAGIC;
 	  if(sector ==0 )
 		  {
